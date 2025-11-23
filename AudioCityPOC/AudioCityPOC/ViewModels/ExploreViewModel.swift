@@ -6,8 +6,8 @@
 //
 
 import Foundation
-import Combine
 import CoreLocation
+import Combine
 
 class ExploreViewModel: ObservableObject {
 
