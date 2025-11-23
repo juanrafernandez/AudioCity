@@ -61,25 +61,27 @@ class FirebaseService: ObservableObject {
     func fetchStops(for routeId: String) async throws -> [Stop] {
         isLoading = true
         errorMessage = nil
-        
+
         defer { isLoading = false }
-        
+
         do {
-            // Query de paradas ordenadas
+            // Query de paradas (sin ordenar en Firestore para evitar índice compuesto)
             let stopsQuery = db.collection("stops")
                 .whereField("route_id", isEqualTo: routeId)
-                .order(by: "order")
-            
+
             let snapshot = try await stopsQuery.getDocuments()
-            
+
             // Decodificar paradas
-            let stops = try snapshot.documents.compactMap { doc in
+            var stops = try snapshot.documents.compactMap { doc in
                 try doc.data(as: Stop.self)
             }
-            
-            print("✅ FirebaseService: \(stops.count) paradas cargadas")
+
+            // Ordenar por campo 'order' en cliente
+            stops.sort { $0.order < $1.order }
+
+            print("✅ FirebaseService: \(stops.count) paradas cargadas y ordenadas")
             return stops
-            
+
         } catch {
             errorMessage = error.localizedDescription
             print("❌ FirebaseService: Error cargando paradas - \(error.localizedDescription)")
