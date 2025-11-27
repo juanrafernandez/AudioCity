@@ -18,11 +18,12 @@ import CoreLocation
 import Combine
 
 class GeofenceService: ObservableObject {
-    
+
     // MARK: - Published Properties
     @Published var triggeredStop: Stop?
+    @Published var triggeredStops: [Stop] = []  // Múltiples paradas activadas
     @Published var nearbyStops: [Stop] = []
-    
+
     // MARK: - Private Properties
     private var monitoredStops: [Stop] = []
     private var cancellables = Set<AnyCancellable>()
@@ -50,6 +51,7 @@ class GeofenceService: ObservableObject {
         monitoredStops.removeAll()
         nearbyStops.removeAll()
         triggeredStop = nil
+        triggeredStops.removeAll()
         cancellables.removeAll()
         print("🎯 GeofenceService: Geofences limpiados")
     }
@@ -60,17 +62,27 @@ class GeofenceService: ObservableObject {
     private func checkProximity(userLocation: CLLocation) {
         // Verificar paradas cercanas (para UI)
         updateNearbyStops(userLocation: userLocation)
-        
-        // Verificar si entramos en el radio de alguna parada no visitada
+
+        // Recoger todas las paradas que entran en su radio de trigger
+        var newlyTriggeredStops: [Stop] = []
+
         for stop in monitoredStops where !stop.hasBeenVisited {
-            let stopLocation = CLLocation(latitude: stop.latitude, 
+            let stopLocation = CLLocation(latitude: stop.latitude,
                                          longitude: stop.longitude)
             let distance = userLocation.distance(from: stopLocation)
-            
+
             // Si entramos en el radio de trigger
             if distance <= stop.triggerRadiusMeters {
-                triggerStop(stop, distance: distance)
-                break // Solo activar una parada a la vez
+                newlyTriggeredStops.append(stop)
+                print("🎯 GeofenceService: Parada en rango - \(stop.name) (distancia: \(Int(distance))m)")
+            }
+        }
+
+        // Activar todas las paradas detectadas (ordenadas por su orden en la ruta)
+        if !newlyTriggeredStops.isEmpty {
+            let sortedStops = newlyTriggeredStops.sorted { $0.order < $1.order }
+            for stop in sortedStops {
+                triggerStop(stop, distance: userLocation.distance(from: stop.location))
             }
         }
     }
@@ -91,16 +103,24 @@ class GeofenceService: ObservableObject {
     
     /// Activar una parada
     private func triggerStop(_ stop: Stop, distance: Double) {
+        // Verificar que no esté ya marcada como visitada
+        guard !stop.hasBeenVisited else { return }
+
         DispatchQueue.main.async {
             // Marcar como visitada
             if let index = self.monitoredStops.firstIndex(where: { $0.id == stop.id }) {
                 self.monitoredStops[index].hasBeenVisited = true
             }
-            
+
             var visitedStop = stop
             visitedStop.hasBeenVisited = true
+
+            // Añadir a la lista de paradas activadas
+            self.triggeredStops.append(visitedStop)
+
+            // Mantener compatibilidad: triggeredStop es la última activada
             self.triggeredStop = visitedStop
-            
+
             print("🎯 GeofenceService: Parada activada - \(stop.name) (distancia: \(Int(distance))m)")
         }
     }

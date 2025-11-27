@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreLocation
 
 struct ProfileView: View {
     @StateObject private var locationService = LocationService()

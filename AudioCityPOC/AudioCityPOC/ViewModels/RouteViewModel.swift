@@ -12,11 +12,13 @@ import Combine
 class RouteViewModel: ObservableObject {
 
     // MARK: - Published Properties
+    @Published var availableRoutes: [Route] = []  // Lista de rutas disponibles
     @Published var currentRoute: Route?
     @Published var stops: [Stop] = []
     @Published var isRouteActive = false
     @Published var currentStop: Stop?
     @Published var isLoading = false
+    @Published var isLoadingRoutes = false  // Cargando lista de rutas
     @Published var errorMessage: String?
     @Published var visitedStopsCount = 0
 
@@ -28,7 +30,6 @@ class RouteViewModel: ObservableObject {
 
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
-    private let routeId = "arganzuela-poc-001"
 
     // MARK: - Initialization
     init() {
@@ -54,6 +55,19 @@ class RouteViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Observar item actual en reproducción para actualizar currentStop
+        audioService.$currentQueueItem
+            .compactMap { $0 }
+            .sink { [weak self] queueItem in
+                guard let self = self else { return }
+                // Buscar la parada correspondiente y actualizar currentStop
+                if let stop = self.stops.first(where: { $0.id == queueItem.stopId }) {
+                    self.currentStop = stop
+                    print("🎵 Reproduciendo ahora: \(stop.name)")
+                }
+            }
+            .store(in: &cancellables)
+
         // Observar ubicación del usuario
         locationService.$userLocation
             .compactMap { $0 }
@@ -65,33 +79,67 @@ class RouteViewModel: ObservableObject {
 
     // MARK: - Public Methods
 
-    /// Cargar ruta desde Firebase
-    func loadRoute() {
-        isLoading = true
+    /// Cargar todas las rutas disponibles desde Firebase
+    func loadAvailableRoutes() {
+        isLoadingRoutes = true
         errorMessage = nil
 
         Task {
             do {
-                // Cargar ruta y paradas en paralelo
-                let (route, fetchedStops) = try await firebaseService.fetchCompleteRoute(routeId: routeId)
+                let routes = try await firebaseService.fetchAllRoutes()
 
                 await MainActor.run {
-                    self.currentRoute = route
+                    self.availableRoutes = routes
+                    self.isLoadingRoutes = false
+                    print("✅ RouteViewModel: \(routes.count) rutas disponibles")
+                }
+
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "Error cargando rutas: \(error.localizedDescription)"
+                    self.isLoadingRoutes = false
+                    print("❌ RouteViewModel: Error cargando rutas - \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Seleccionar y cargar una ruta específica
+    func selectRoute(_ route: Route) {
+        isLoading = true
+        errorMessage = nil
+        currentRoute = route
+
+        Task {
+            do {
+                let fetchedStops = try await firebaseService.fetchStops(for: route.id)
+
+                await MainActor.run {
                     self.stops = fetchedStops
                     self.isLoading = false
 
-                    print("✅ RouteViewModel: Ruta cargada - \(route.name)")
+                    print("✅ RouteViewModel: Ruta seleccionada - \(route.name)")
                     print("✅ RouteViewModel: \(fetchedStops.count) paradas cargadas")
                 }
 
             } catch {
                 await MainActor.run {
-                    self.errorMessage = "Error cargando la ruta: \(error.localizedDescription)"
+                    self.errorMessage = "Error cargando paradas: \(error.localizedDescription)"
                     self.isLoading = false
                     print("❌ RouteViewModel: Error - \(error.localizedDescription)")
                 }
             }
         }
+    }
+
+    /// Volver a la lista de rutas
+    func backToRoutesList() {
+        if isRouteActive {
+            endRoute()
+        }
+        currentRoute = nil
+        stops = []
+        errorMessage = nil
     }
 
     /// Iniciar ruta
@@ -113,17 +161,27 @@ class RouteViewModel: ObservableObject {
         locationService.startTracking()
         geofenceService.setupGeofences(for: stops, locationService: locationService)
 
+        // Registrar geofences nativos para wake-up (funciona con app suspendida)
+        let stopsForGeofence = stops.map { (id: $0.id, latitude: $0.latitude, longitude: $0.longitude) }
+        locationService.registerNativeGeofences(stops: stopsForGeofence)
+
         isRouteActive = true
         errorMessage = nil
 
         print("🚀 RouteViewModel: Ruta iniciada - \(route.name)")
+        if locationService.isGeofencingAvailable() {
+            print("📍 Geofences nativos disponibles y registrados")
+        } else {
+            print("⚠️ Geofences nativos no disponibles en este dispositivo")
+        }
     }
 
     /// Detener ruta
     func endRoute() {
         locationService.stopTracking()
+        locationService.clearNativeGeofences()  // Limpiar geofences nativos
         geofenceService.clearGeofences()
-        audioService.stop()
+        audioService.stopAndClear()  // Detener y limpiar cola
 
         isRouteActive = false
         currentStop = nil
@@ -179,17 +237,25 @@ class RouteViewModel: ObservableObject {
             stops[index].hasBeenVisited = true
         }
 
-        // Actualizar parada actual
-        currentStop = stop
+        // Actualizar parada actual (si no hay ninguna reproduciéndose)
+        if currentStop == nil || !audioService.isPlaying {
+            currentStop = stop
+        }
 
         // Actualizar contador de visitadas
         visitedStopsCount = getVisitedCount()
 
-        // Reproducir audio automáticamente
-        audioService.speak(text: stop.scriptEs, language: "es-ES")
+        // Encolar audio para reproducción (en vez de reproducir directamente)
+        audioService.enqueueStop(
+            stopId: stop.id,
+            stopName: stop.name,
+            text: stop.scriptEs,
+            order: stop.order
+        )
 
-        print("🎯 RouteViewModel: Parada activada - \(stop.name)")
+        print("🎯 RouteViewModel: Parada activada y encolada - \(stop.name)")
         print("📊 Progreso: \(visitedStopsCount)/\(stops.count) paradas completadas")
+        print("🔊 Cola de audio: \(audioService.getQueueCount()) pendientes")
 
         // Si completamos todas las paradas
         if visitedStopsCount == stops.count {
