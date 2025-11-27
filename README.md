@@ -11,6 +11,7 @@ Plataforma de turismo basada en audio-guías geolocalizadas. El usuario compra u
 - [Servicios](#servicios)
 - [Flujo de Geolocalización](#flujo-de-geolocalización)
 - [Sistema de Audio](#sistema-de-audio)
+- [UI/UX - Pantallas](#uiux---pantallas)
 - [Firebase - Estructura de Datos](#firebase---estructura-de-datos)
 - [Guía para Android](#guía-para-android)
 
@@ -70,7 +71,13 @@ Plataforma de turismo basada en audio-guías geolocalizadas. El usuario compra u
 AudioCityPOC/
 ├── AudioCityPOCApp.swift      # Entry point, configuración Firebase
 ├── ContentView.swift          # Vista raíz con splash screen
-├── Info.plist                 # Permisos y configuración
+├── Info.plist                 # Permisos, Launch Screen config
+│
+├── Assets.xcassets/
+│   ├── AppIcon.appiconset/    # Icono de la app
+│   ├── AppLogo_transp.imageset/ # Logo transparente (splash/launch)
+│   ├── LaunchBackground.colorset/ # Color de fondo del launch screen
+│   └── AccentColor.colorset/  # Color de acento
 │
 ├── Models/
 │   ├── Route.swift            # Modelo de ruta turística
@@ -88,11 +95,11 @@ AudioCityPOC/
 │
 └── Views/
     ├── SplashView.swift       # Pantalla de carga animada
-    ├── MainTabView.swift      # Navegación por tabs
-    ├── MapExploreView.swift   # Mapa de exploración
+    ├── MainTabView.swift      # Navegación por tabs (3 tabs)
+    ├── MapExploreView.swift   # Tab 1: Mapa de exploración
+    ├── RoutesListView.swift   # Tab 2: Lista de rutas + detalle
     ├── MapView.swift          # Mapa durante ruta activa
-    ├── RoutesListView.swift   # Lista de rutas disponibles
-    └── ProfileView.swift      # Perfil y configuración
+    └── ProfileView.swift      # Tab 3: Perfil y configuración
 ```
 
 ---
@@ -122,6 +129,34 @@ struct Route: Identifiable, Codable {
 }
 ```
 
+**Kotlin equivalente:**
+```kotlin
+data class Route(
+    val id: String,
+    val name: String,
+    val description: String,
+    val city: String,
+    val neighborhood: String,
+    @PropertyName("duration_minutes") val durationMinutes: Int,
+    @PropertyName("distance_km") val distanceKm: Double,
+    val difficulty: String,
+    @PropertyName("num_stops") val numStops: Int,
+    val language: String,
+    @PropertyName("is_active") val isActive: Boolean,
+    @PropertyName("created_at") val createdAt: String,
+    @PropertyName("updated_at") val updatedAt: String,
+    @PropertyName("thumbnail_url") val thumbnailUrl: String,
+    @PropertyName("start_location") val startLocation: Location,
+    @PropertyName("end_location") val endLocation: Location
+)
+
+data class Location(
+    val latitude: Double,
+    val longitude: Double,
+    val name: String
+)
+```
+
 ### Stop (Parada)
 
 ```swift
@@ -139,8 +174,28 @@ struct Stop: Identifiable, Codable {
     let imageUrl: String
     let scriptEs: String              // Texto a narrar en español
     let funFact: String               // Dato curioso
-    var hasBeenVisited: Bool          // Estado mutable
+    var hasBeenVisited: Bool          // Estado mutable (local, no en Firebase)
 }
+```
+
+**Kotlin equivalente:**
+```kotlin
+data class Stop(
+    val id: String,
+    @PropertyName("route_id") val routeId: String,
+    val order: Int,
+    val name: String,
+    val description: String,
+    val category: String,
+    val latitude: Double,
+    val longitude: Double,
+    @PropertyName("trigger_radius_meters") val triggerRadiusMeters: Double,
+    @PropertyName("audio_duration_seconds") val audioDurationSeconds: Int,
+    @PropertyName("image_url") val imageUrl: String,
+    @PropertyName("script_es") val scriptEs: String,
+    @PropertyName("fun_fact") val funFact: String,
+    var hasBeenVisited: Boolean = false  // Local state
+)
 ```
 
 ---
@@ -157,7 +212,7 @@ Gestiona la ubicación del usuario con soporte para background.
 - Registro de geofences nativos de iOS (máximo 20)
 - Despertar la app cuando está suspendida
 
-**Configuración crítica:**
+**Configuración crítica iOS:**
 ```swift
 locationManager.allowsBackgroundLocationUpdates = true
 locationManager.pausesLocationUpdatesAutomatically = false
@@ -166,10 +221,22 @@ locationManager.desiredAccuracy = kCLLocationAccuracyBest
 locationManager.distanceFilter = 5  // metros
 ```
 
+**Configuración equivalente Android:**
+```kotlin
+val locationRequest = LocationRequest.Builder(
+    Priority.PRIORITY_HIGH_ACCURACY,
+    5000  // interval ms
+).apply {
+    setMinUpdateDistanceMeters(5f)
+    setWaitForAccurateLocation(true)
+}.build()
+```
+
 **Geofences nativos:**
 - Radio de wake-up: 100m (más amplio para despertar la app)
 - Sirven para activar la app cuando está suspendida
 - Límite de iOS: 20 regiones simultáneas
+- Límite de Android: 100 geofences por app
 
 ### GeofenceService
 
@@ -190,6 +257,7 @@ userLocation cambia
                 → triggerStop()
                     → marcar como visitada
                     → publicar en @Published triggeredStop
+                    → encolar audio en AudioService
 ```
 
 ### AudioService
@@ -202,7 +270,7 @@ Reproduce narraciones usando Text-to-Speech con sistema de cola.
 - Reproducción automática del siguiente al terminar
 - Controles: play, pause, resume, stop, skipToNext
 
-**Configuración para background:**
+**Configuración para background iOS:**
 ```swift
 audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
 ```
@@ -218,6 +286,17 @@ struct AudioQueueItem {
 }
 ```
 
+**Kotlin equivalente:**
+```kotlin
+data class AudioQueueItem(
+    val id: String,
+    val stopId: String,
+    val stopName: String,
+    val text: String,
+    val order: Int
+)
+```
+
 ### FirebaseService
 
 Comunicación con Firestore.
@@ -227,6 +306,20 @@ Comunicación con Firestore.
 - `fetchStops(for routeId:)` - Obtiene paradas ordenadas por `order`
 - `fetchCompleteRoute(routeId:)` - Carga ruta + paradas en paralelo
 
+**Queries Firestore:**
+```kotlin
+// Obtener rutas activas
+db.collection("routes")
+    .whereEqualTo("is_active", true)
+    .get()
+
+// Obtener paradas de una ruta ordenadas
+db.collection("stops")
+    .whereEqualTo("route_id", routeId)
+    .orderBy("order")
+    .get()
+```
+
 ---
 
 ## Flujo de Geolocalización
@@ -235,8 +328,8 @@ Comunicación con Firestore.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    APP SUSPENDIDA                            │
-│  Geofences nativos (100m) → iOS despierta la app            │
+│                    APP SUSPENDIDA/CERRADA                    │
+│  Geofences nativos (100m) → Sistema despierta la app        │
 └─────────────────────────────────────────────────────────────┘
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -253,7 +346,7 @@ Comunicación con Firestore.
 | Funciona con app cerrada | Requiere app en background |
 | Bajo consumo batería | Mayor consumo |
 | Precisión ~100m | Precisión ~5m |
-| Máximo 20 regiones | Sin límite |
+| Máximo 20 (iOS) / 100 (Android) | Sin límite |
 
 **Solución:** Geofences nativos para "despertar" la app, Location Updates para precisión.
 
@@ -268,12 +361,12 @@ Stop detectada → enqueueStop() → audioQueue (ordenada por order)
                                       ↓
                                playNextInQueue()
                                       ↓
-                               AVSpeechSynthesizer
+                               TTS Engine
                                       ↓
-                               didFinish → playNextInQueue()
+                               onDone → playNextInQueue()
 ```
 
-### Configuración TTS
+### Configuración TTS iOS
 
 ```swift
 utterance.voice = AVSpeechSynthesisVoice(language: "es-ES")
@@ -282,12 +375,110 @@ utterance.pitchMultiplier = 1.0
 utterance.volume = 1.0
 ```
 
+### Configuración TTS Android
+
+```kotlin
+val tts = TextToSpeech(context) { status ->
+    if (status == TextToSpeech.SUCCESS) {
+        tts.language = Locale("es", "ES")
+        tts.setSpeechRate(0.9f)  // Android usa escala diferente
+    }
+}
+
+// Con listener para reproducción secuencial
+tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+    override fun onDone(utteranceId: String?) {
+        playNextInQueue()
+    }
+    override fun onStart(utteranceId: String?) {}
+    override fun onError(utteranceId: String?) {}
+})
+
+tts.speak(text, TextToSpeech.QUEUE_ADD, null, uniqueUtteranceId)
+```
+
 ### Futuro: Audio Pregrabado
 
 Para producción, reemplazar TTS por archivos de audio:
 - Almacenar en Firebase Storage
 - Descargar y cachear localmente
-- Usar AVAudioPlayer en lugar de AVSpeechSynthesizer
+- iOS: usar `AVAudioPlayer`
+- Android: usar `ExoPlayer` o `MediaPlayer`
+
+---
+
+## UI/UX - Pantallas
+
+### Launch Screen (Nativo)
+- **iOS:** Configurado en `Info.plist` con `UILaunchScreen`
+- **Android:** Usar SplashScreen API (Android 12+) o tema con windowBackground
+- Color de fondo: Azul marca (#3361FA)
+- Logo centrado: `AppLogo_transp`
+
+### Splash View (Animado)
+Pantalla de carga con animaciones mientras se inicializa la app:
+- Logo con animación de pulso suave
+- Ondas circulares expandiéndose (efecto "audio waves")
+- Texto "AudioCity" + tagline
+- Barras de audio animadas como indicador de carga
+- Duración: ~2.5 segundos
+
+**Implementación Android:**
+```kotlin
+@Composable
+fun SplashScreen(onFinished: () -> Unit) {
+    var isAnimating by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isAnimating = true
+        delay(2500)
+        onFinished()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BrandColor),
+        contentAlignment = Alignment.Center
+    ) {
+        // Logo con animación
+        Image(
+            painter = painterResource(R.drawable.app_logo_transp),
+            modifier = Modifier
+                .size(150.dp)
+                .scale(if (isAnimating) 1.05f else 1f)
+        )
+        // Ondas animadas...
+    }
+}
+```
+
+### Navegación Principal (Tab Bar)
+3 tabs:
+1. **Explorar** - Mapa con todas las paradas
+2. **Rutas** - Lista de rutas disponibles
+3. **Perfil** - Configuración y estado
+
+### Lista de Rutas
+- Cards con: icono por categoría, nombre, ubicación, descripción
+- Stats: duración, distancia, número de paradas
+- Badge de dificultad (Easy/Medium/Hard)
+- Colores por barrio/categoría
+
+### Detalle de Ruta
+- Header con icono y nombre
+- Descripción completa
+- Stats en grid (duración, distancia, dificultad, barrio, paradas)
+- Lista de paradas con indicador de orden
+- Botón "Iniciar Ruta"
+
+### Mapa Activo (Durante Ruta)
+- Marcadores numerados por orden de parada
+- Colores: naranja (pendiente), azul (actual), verde (visitada)
+- Banner superior con parada en reproducción
+- Controles de audio (pause/resume, stop)
+- Barra de progreso
+- Botón X para finalizar ruta
 
 ---
 
@@ -299,7 +490,7 @@ Para producción, reemplazar TTS por archivos de audio:
 {
   "id": "arganzuela-poc-001",
   "name": "Descubre Arganzuela",
-  "description": "Paseo por la transformación urbana...",
+  "description": "Paseo por la transformación urbana de uno de los barrios más dinámicos de Madrid",
   "city": "Madrid",
   "neighborhood": "Arganzuela",
   "language": "es",
@@ -332,15 +523,15 @@ Para producción, reemplazar TTS por archivos de audio:
   "route_id": "arganzuela-poc-001",
   "order": 1,
   "name": "Matadero Madrid",
-  "description": "Centro de creación contemporánea...",
+  "description": "Centro de creación contemporánea en antiguo matadero",
   "category": "cultura",
   "latitude": 40.3917,
   "longitude": -3.6989,
   "trigger_radius_meters": 25,
   "audio_duration_seconds": 75,
   "image_url": "",
-  "script_es": "Bienvenido al Matadero Madrid...",
-  "fun_fact": "El Matadero ocupa 165,000 metros cuadrados...",
+  "script_es": "Bienvenido al Matadero Madrid. Este lugar es uno de los mejores ejemplos de regeneración urbana en España...",
+  "fun_fact": "El Matadero ocupa 165,000 metros cuadrados, casi el tamaño de 23 campos de fútbol",
   "has_been_visited": false
 }
 ```
@@ -352,6 +543,14 @@ Collection: stops
 Fields: route_id (ASC), order (ASC)
 ```
 
+### Rutas de ejemplo en el POC
+
+| ID | Nombre | Barrio | Paradas |
+|----|--------|--------|---------|
+| arganzuela-poc-001 | Descubre Arganzuela | Arganzuela | 6 |
+| letras-poc-001 | Barrio de las Letras | Centro | 5 |
+| canal-poc-001 | Canal y Chamberí | Chamberí | 5 |
+
 ---
 
 ## Guía para Android
@@ -362,94 +561,325 @@ Fields: route_id (ASC), order (ASC)
 |-----|---------|
 | SwiftUI | Jetpack Compose |
 | @Published / Combine | StateFlow / Flow |
-| @StateObject | viewModel() con Hilt |
+| @StateObject / @ObservedObject | viewModel() con Hilt |
 | CoreLocation | FusedLocationProviderClient |
 | CLCircularRegion | GeofencingClient |
 | AVSpeechSynthesizer | TextToSpeech |
 | MapKit | Google Maps SDK |
-| UserDefaults | DataStore |
+| UserDefaults | DataStore Preferences |
+| Info.plist | AndroidManifest.xml |
+| UILaunchScreen | SplashScreen API |
 
 ### Permisos Android
 
 ```xml
+<!-- AndroidManifest.xml -->
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.INTERNET" />
 ```
 
 ### Estructura Recomendada Android
 
 ```
 app/
-├── di/                        # Dependency Injection (Hilt)
-├── data/
-│   ├── model/
-│   │   ├── Route.kt
-│   │   └── Stop.kt
-│   ├── repository/
-│   │   └── RouteRepository.kt
-│   └── firebase/
-│       └── FirebaseService.kt
-├── domain/
-│   └── usecase/
-├── service/
-│   ├── LocationService.kt     # Foreground Service
-│   ├── GeofenceService.kt
-│   └── AudioService.kt
-├── ui/
-│   ├── splash/
-│   ├── routes/
-│   ├── map/
-│   └── profile/
-└── util/
+├── src/main/
+│   ├── java/com/audiocity/
+│   │   ├── di/                        # Hilt modules
+│   │   │   ├── AppModule.kt
+│   │   │   └── FirebaseModule.kt
+│   │   │
+│   │   ├── data/
+│   │   │   ├── model/
+│   │   │   │   ├── Route.kt
+│   │   │   │   ├── Stop.kt
+│   │   │   │   └── AudioQueueItem.kt
+│   │   │   ├── repository/
+│   │   │   │   └── RouteRepository.kt
+│   │   │   └── firebase/
+│   │   │       └── FirebaseService.kt
+│   │   │
+│   │   ├── service/
+│   │   │   ├── LocationService.kt     # Foreground Service
+│   │   │   ├── GeofenceService.kt
+│   │   │   ├── GeofenceBroadcastReceiver.kt
+│   │   │   └── AudioService.kt
+│   │   │
+│   │   ├── ui/
+│   │   │   ├── theme/
+│   │   │   │   ├── Color.kt
+│   │   │   │   ├── Theme.kt
+│   │   │   │   └── Type.kt
+│   │   │   ├── splash/
+│   │   │   │   └── SplashScreen.kt
+│   │   │   ├── routes/
+│   │   │   │   ├── RoutesListScreen.kt
+│   │   │   │   ├── RouteDetailScreen.kt
+│   │   │   │   ├── RouteCard.kt
+│   │   │   │   └── RoutesViewModel.kt
+│   │   │   ├── map/
+│   │   │   │   ├── MapExploreScreen.kt
+│   │   │   │   ├── ActiveRouteMapScreen.kt
+│   │   │   │   └── MapViewModel.kt
+│   │   │   ├── profile/
+│   │   │   │   └── ProfileScreen.kt
+│   │   │   └── navigation/
+│   │   │       ├── NavGraph.kt
+│   │   │       └── BottomNavBar.kt
+│   │   │
+│   │   ├── util/
+│   │   │   ├── PermissionHelper.kt
+│   │   │   └── Extensions.kt
+│   │   │
+│   │   └── AudioCityApp.kt            # Application class
+│   │
+│   ├── res/
+│   │   ├── drawable/
+│   │   │   └── app_logo_transp.png
+│   │   ├── values/
+│   │   │   ├── colors.xml
+│   │   │   ├── strings.xml
+│   │   │   └── themes.xml
+│   │   └── xml/
+│   │       └── backup_rules.xml
+│   │
+│   └── AndroidManifest.xml
+│
+└── build.gradle.kts
+```
+
+### Dependencias Android (build.gradle.kts)
+
+```kotlin
+dependencies {
+    // Compose
+    implementation(platform("androidx.compose:compose-bom:2024.01.00"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.navigation:navigation-compose:2.7.6")
+
+    // Lifecycle + ViewModel
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+
+    // Hilt
+    implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-compiler:2.48")
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-firestore-ktx")
+
+    // Location
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+
+    // Maps
+    implementation("com.google.maps.android:maps-compose:4.3.0")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+
+    // Splash Screen
+    implementation("androidx.core:core-splashscreen:1.0.1")
+}
 ```
 
 ### Geofencing en Android
 
 ```kotlin
-// Crear geofence
-val geofence = Geofence.Builder()
-    .setRequestId(stopId)
-    .setCircularRegion(latitude, longitude, radiusMeters)
-    .setExpirationDuration(Geofence.NEVER_EXPIRE)
-    .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER)
-    .build()
+class GeofenceService @Inject constructor(
+    private val geofencingClient: GeofencingClient,
+    private val context: Context
+) {
+    private val geofencePendingIntent: PendingIntent by lazy {
+        val intent = Intent(context, GeofenceBroadcastReceiver::class.java)
+        PendingIntent.getBroadcast(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        )
+    }
 
-// Registrar con GeofencingClient
-geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)
+    fun registerGeofences(stops: List<Stop>) {
+        val geofences = stops.map { stop ->
+            Geofence.Builder()
+                .setRequestId(stop.id)
+                .setCircularRegion(
+                    stop.latitude,
+                    stop.longitude,
+                    stop.triggerRadiusMeters.toFloat()
+                )
+                .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER)
+                .build()
+        }
+
+        val request = GeofencingRequest.Builder()
+            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+            .addGeofences(geofences)
+            .build()
+
+        geofencingClient.addGeofences(request, geofencePendingIntent)
+    }
+
+    fun clearGeofences() {
+        geofencingClient.removeGeofences(geofencePendingIntent)
+    }
+}
 ```
 
 ### Location Updates en Android
 
 ```kotlin
-val locationRequest = LocationRequest.Builder(
-    Priority.PRIORITY_HIGH_ACCURACY,
-    5000  // interval ms
-).apply {
-    setMinUpdateDistanceMeters(5f)
-    setWaitForAccurateLocation(true)
-}.build()
+class LocationService @Inject constructor(
+    private val fusedLocationClient: FusedLocationProviderClient
+) {
+    private val _userLocation = MutableStateFlow<Location?>(null)
+    val userLocation: StateFlow<Location?> = _userLocation.asStateFlow()
 
-fusedLocationClient.requestLocationUpdates(
-    locationRequest,
-    locationCallback,
-    Looper.getMainLooper()
-)
-```
+    private val locationRequest = LocationRequest.Builder(
+        Priority.PRIORITY_HIGH_ACCURACY,
+        5000  // interval ms
+    ).apply {
+        setMinUpdateDistanceMeters(5f)
+        setWaitForAccurateLocation(true)
+    }.build()
 
-### TextToSpeech en Android
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            result.lastLocation?.let { location ->
+                _userLocation.value = location
+            }
+        }
+    }
 
-```kotlin
-val tts = TextToSpeech(context) { status ->
-    if (status == TextToSpeech.SUCCESS) {
-        tts.language = Locale("es", "ES")
-        tts.setSpeechRate(0.9f)
+    fun startTracking() {
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            Looper.getMainLooper()
+        )
+    }
+
+    fun stopTracking() {
+        fusedLocationClient.removeLocationUpdates(locationCallback)
     }
 }
+```
 
-tts.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId)
+### TextToSpeech con Cola en Android
+
+```kotlin
+class AudioService(context: Context) {
+    private var tts: TextToSpeech? = null
+    private val audioQueue = mutableListOf<AudioQueueItem>()
+    private val processedStopIds = mutableSetOf<String>()
+
+    private val _isPlaying = MutableStateFlow(false)
+    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
+    private val _currentItem = MutableStateFlow<AudioQueueItem?>(null)
+    val currentItem: StateFlow<AudioQueueItem?> = _currentItem.asStateFlow()
+
+    init {
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale("es", "ES")
+                tts?.setSpeechRate(0.9f)
+
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        _isPlaying.value = true
+                    }
+                    override fun onDone(utteranceId: String?) {
+                        _isPlaying.value = false
+                        playNextInQueue()
+                    }
+                    override fun onError(utteranceId: String?) {
+                        _isPlaying.value = false
+                    }
+                })
+            }
+        }
+    }
+
+    fun enqueueStop(stop: Stop) {
+        if (processedStopIds.contains(stop.id)) return
+
+        val item = AudioQueueItem(
+            id = UUID.randomUUID().toString(),
+            stopId = stop.id,
+            stopName = stop.name,
+            text = stop.scriptEs,
+            order = stop.order
+        )
+
+        // Insertar ordenado
+        val index = audioQueue.indexOfFirst { it.order > stop.order }
+        if (index == -1) audioQueue.add(item) else audioQueue.add(index, item)
+        processedStopIds.add(stop.id)
+
+        if (!_isPlaying.value) {
+            playNextInQueue()
+        }
+    }
+
+    private fun playNextInQueue() {
+        if (audioQueue.isEmpty()) {
+            _currentItem.value = null
+            return
+        }
+
+        val item = audioQueue.removeAt(0)
+        _currentItem.value = item
+
+        tts?.speak(item.text, TextToSpeech.QUEUE_FLUSH, null, item.id)
+    }
+
+    fun pause() = tts?.stop()
+    fun stop() {
+        tts?.stop()
+        audioQueue.clear()
+        _currentItem.value = null
+    }
+
+    fun release() {
+        tts?.shutdown()
+        tts = null
+    }
+}
+```
+
+### Splash Screen Android 12+
+
+```kotlin
+// En themes.xml
+<style name="Theme.AudioCity.Splash" parent="Theme.SplashScreen">
+    <item name="windowSplashScreenBackground">@color/brand_blue</item>
+    <item name="windowSplashScreenAnimatedIcon">@drawable/app_logo_transp</item>
+    <item name="postSplashScreenTheme">@style/Theme.AudioCity</item>
+</style>
+
+// En MainActivity.kt
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
+        super.onCreate(savedInstanceState)
+
+        // Mantener splash mientras carga
+        splashScreen.setKeepOnScreenCondition { viewModel.isLoading.value }
+
+        setContent {
+            AudioCityTheme {
+                // ...
+            }
+        }
+    }
+}
 ```
 
 ---
@@ -458,28 +888,53 @@ tts.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId)
 
 ### iOS - Info.plist
 
-Permisos requeridos:
 ```xml
-<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>Necesitamos tu ubicación para activar las audioguías cuando llegues a los puntos de interés</string>
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <!-- Permisos de ubicación -->
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Necesitamos tu ubicación para activar las audioguías cuando llegues a los puntos de interés</string>
 
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>Necesitamos tu ubicación para mostrarte las rutas cercanas</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Necesitamos tu ubicación para mostrarte las rutas cercanas</string>
 
-<key>UIBackgroundModes</key>
-<array>
-    <string>audio</string>
-    <string>location</string>
-</array>
+    <!-- Background modes -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+        <string>location</string>
+    </array>
+
+    <!-- Launch Screen -->
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIColorName</key>
+        <string>LaunchBackground</string>
+        <key>UIImageName</key>
+        <string>AppLogo_transp</string>
+        <key>UIImageRespectsSafeAreaInsets</key>
+        <true/>
+    </dict>
+</dict>
+</plist>
 ```
 
-### Firebase
+### Firebase Setup
 
 1. Crear proyecto en Firebase Console
-2. Añadir app iOS con Bundle ID
-3. Descargar `GoogleService-Info.plist`
-4. Habilitar Firestore en modo producción
-5. Crear índice para `stops` (route_id + order)
+2. Añadir app iOS con Bundle ID: `com.audiocity.poc`
+3. Añadir app Android con package: `com.audiocity.android`
+4. Descargar `GoogleService-Info.plist` (iOS) y `google-services.json` (Android)
+5. Habilitar Firestore
+6. Crear índice para `stops`: `route_id (ASC), order (ASC)`
+
+### Colores de Marca
+
+```
+Brand Blue:    #3361FA (RGB: 51, 97, 250)
+Brand Blue Dark: #1E47D9 (para dark mode)
+```
 
 ---
 
@@ -489,11 +944,12 @@ Permisos requeridos:
 - [x] Arquitectura base MVVM
 - [x] Integración Firebase
 - [x] Geolocalización background
-- [x] Sistema de audio TTS
-- [x] Lista de rutas
+- [x] Sistema de audio TTS con cola
+- [x] Lista de rutas dinámica
 - [x] Mapa interactivo
-- [x] Cola de reproducción
+- [x] Launch Screen nativo
 - [x] Splash screen animado
+- [x] Documentación técnica
 
 ### Fase 2 - MVP
 - [ ] Autenticación de usuarios
