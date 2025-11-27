@@ -30,46 +30,34 @@ struct SplashView: View {
             VStack(spacing: 30) {
                 Spacer()
 
-                // Logo con icono
+                // Logo de la app
                 ZStack {
-                    // Círculo de fondo animado
-                    Circle()
-                        .fill(Color.white.opacity(0.15))
-                        .frame(width: 160, height: 160)
-                        .scaleEffect(isAnimating ? 1.1 : 1.0)
+                    // Ondas de audio alrededor del logo
+                    ForEach(0..<3) { index in
+                        Circle()
+                            .stroke(Color.white.opacity(0.3 - Double(index) * 0.1), lineWidth: 2)
+                            .frame(width: CGFloat(180 + index * 30), height: CGFloat(180 + index * 30))
+                            .scaleEffect(isAnimating ? 1.2 : 1.0)
+                            .opacity(isAnimating ? 0 : 1)
+                            .animation(
+                                Animation.easeOut(duration: 1.5)
+                                    .repeatForever(autoreverses: false)
+                                    .delay(Double(index) * 0.3),
+                                value: isAnimating
+                            )
+                    }
+
+                    // Logo de la app
+                    Image("AppLogo_transp")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 150, height: 150)
+                        .scaleEffect(isAnimating ? 1.05 : 1.0)
                         .animation(
                             Animation.easeInOut(duration: 1.5)
                                 .repeatForever(autoreverses: true),
                             value: isAnimating
                         )
-
-                    // Icono principal
-                    VStack(spacing: 8) {
-                        // Icono de ubicación con ondas de audio
-                        ZStack {
-                            // Pin de ubicación
-                            Image(systemName: "mappin.circle.fill")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 70, height: 70)
-                                .foregroundColor(.white)
-
-                            // Ondas de audio alrededor
-                            ForEach(0..<3) { index in
-                                Circle()
-                                    .stroke(Color.white.opacity(0.3 - Double(index) * 0.1), lineWidth: 2)
-                                    .frame(width: CGFloat(90 + index * 20), height: CGFloat(90 + index * 20))
-                                    .scaleEffect(isAnimating ? 1.2 : 1.0)
-                                    .opacity(isAnimating ? 0 : 1)
-                                    .animation(
-                                        Animation.easeOut(duration: 1.5)
-                                            .repeatForever(autoreverses: false)
-                                            .delay(Double(index) * 0.3),
-                                        value: isAnimating
-                                    )
-                            }
-                        }
-                    }
                 }
 
                 // Nombre de la app
