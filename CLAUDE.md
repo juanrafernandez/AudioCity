@@ -70,7 +70,11 @@ xcodebuild -project AudioCityPOC/AudioCityPOC.xcodeproj -scheme AudioCityPOC -de
 
 ### Modelo de Datos Firebase
 - Colección `routes`: Rutas con metadatos (ciudad, duración, dificultad, etc.)
-- Colección `stops`: Paradas con `route_id`, `order`, coordenadas, `narration_text`
+- Colección `stops`: Paradas con `route_id`, `order`, coordenadas, `script_es`, `fun_fact`, `category`
+
+## Configuración de UI
+
+- **Orientación:** Solo Portrait (iPhone y iPad)
 
 ## Colores de Marca
 
