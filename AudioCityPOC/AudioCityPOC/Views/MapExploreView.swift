@@ -33,12 +33,6 @@ struct MapExploreView: View {
 
                     // Overlay con controles
                     VStack {
-                        // Header con información
-                        if !viewModel.allStops.isEmpty {
-                            infoHeader
-                                .padding()
-                        }
-
                         Spacer()
 
                         // Parada seleccionada
@@ -122,26 +116,6 @@ struct MapExploreView: View {
             }
         }
         .edgesIgnoringSafeArea(.all)
-    }
-
-    // MARK: - Info Header
-    private var infoHeader: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(viewModel.routes.count) rutas disponibles")
-                    .font(.headline)
-                Text("\(viewModel.allStops.count) puntos de audio")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(UIColor.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
-        )
     }
 
     // MARK: - Actions
