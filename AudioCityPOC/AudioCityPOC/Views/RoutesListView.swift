@@ -290,12 +290,12 @@ struct RoutesListView: View {
             .padding(.horizontal)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
+                HStack(spacing: 12) {
                     ForEach(routes) { route in
                         RouteCardCompact(route: route) {
                             viewModel.selectRoute(route)
                         }
-                        .frame(width: 280)
+                        .frame(width: 180)
                     }
                 }
                 .padding(.horizontal)
@@ -308,24 +308,24 @@ struct RoutesListView: View {
         Button(action: {
             showingAllRoutes = true
         }) {
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 Image(systemName: "map.fill")
-                    .font(.title2)
+                    .font(.title3)
                     .foregroundColor(.white)
-                    .frame(width: 50, height: 50)
+                    .frame(width: 44, height: 44)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 10)
                             .fill(Color.blue)
                     )
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Todas las Rutas")
-                        .font(.headline)
-                        .fontWeight(.bold)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
                         .foregroundColor(.primary)
 
                     Text("\(viewModel.availableRoutes.count) rutas con buscador y filtros")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
@@ -334,11 +334,11 @@ struct RoutesListView: View {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.secondary)
             }
-            .padding()
+            .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(Color(UIColor.systemBackground))
-                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -466,15 +466,15 @@ struct RouteCardCompact: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                // Header con icono
+            VStack(alignment: .leading, spacing: 6) {
+                // Header con icono y dificultad
                 HStack {
                     Image(systemName: categoryIcon)
-                        .font(.title2)
+                        .font(.body)
                         .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 32, height: 32)
                         .background(
-                            RoundedRectangle(cornerRadius: 10)
+                            RoundedRectangle(cornerRadius: 8)
                                 .fill(categoryColor)
                         )
 
@@ -485,33 +485,37 @@ struct RouteCardCompact: View {
                         .font(.caption2)
                         .fontWeight(.medium)
                         .foregroundColor(difficultyColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
                         .background(
                             Capsule().fill(difficultyColor.opacity(0.15))
                         )
                 }
 
-                // Nombre y ubicación
+                // Nombre (altura fija para 2 líneas)
                 Text(route.name)
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                     .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(height: 40, alignment: .topLeading)
 
+                // Ubicación
                 Text("\(route.neighborhood), \(route.city)")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
 
                 // Stats
-                HStack(spacing: 12) {
+                HStack(spacing: 8) {
                     Label("\(route.durationMinutes)m", systemImage: "clock")
                     Label("\(route.numStops)", systemImage: "mappin")
                 }
                 .font(.caption2)
                 .foregroundColor(.secondary)
             }
-            .padding(12)
+            .padding(10)
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color(UIColor.systemBackground))
