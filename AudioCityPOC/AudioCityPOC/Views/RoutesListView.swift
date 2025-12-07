@@ -9,11 +9,12 @@ import SwiftUI
 
 struct RoutesListView: View {
     @StateObject private var viewModel = RouteViewModel()
-    @StateObject private var tripService = TripService()
+    @ObservedObject private var tripService = TripService.shared
     @StateObject private var favoritesService = FavoritesService()
     @State private var showingTripOnboarding = false
     @State private var showingAllRoutes = false
     @State private var showingAllTrips = false
+    @State private var selectedTrip: Trip?
 
     var body: some View {
         NavigationView {
@@ -58,6 +59,9 @@ struct RoutesListView: View {
         }
         .sheet(isPresented: $showingAllTrips) {
             AllTripsView(tripService: tripService)
+        }
+        .sheet(item: $selectedTrip) { trip in
+            TripDetailView(trip: trip, tripService: tripService)
         }
     }
 
@@ -192,7 +196,7 @@ struct RoutesListView: View {
                 // Mostrar máximo 2 viajes próximos/actuales
                 ForEach(visibleTrips) { trip in
                     TripCard(trip: trip, tripService: tripService) {
-                        // TODO: Navigate to trip detail
+                        selectedTrip = trip
                     }
                 }
 

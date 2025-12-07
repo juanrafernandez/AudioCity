@@ -10,6 +10,7 @@ import SwiftUI
 struct AllTripsView: View {
     @ObservedObject var tripService: TripService
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedTrip: Trip?
 
     var body: some View {
         NavigationView {
@@ -19,6 +20,10 @@ struct AllTripsView: View {
                     Section {
                         ForEach(currentTrips) { trip in
                             TripRowView(trip: trip, tripService: tripService)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedTrip = trip
+                                }
                         }
                         .onDelete { indexSet in
                             deleteTrips(from: currentTrips, at: indexSet)
@@ -33,6 +38,10 @@ struct AllTripsView: View {
                     Section {
                         ForEach(futureTrips) { trip in
                             TripRowView(trip: trip, tripService: tripService)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedTrip = trip
+                                }
                         }
                         .onDelete { indexSet in
                             deleteTrips(from: futureTrips, at: indexSet)
@@ -47,6 +56,10 @@ struct AllTripsView: View {
                     Section {
                         ForEach(pastTrips) { trip in
                             TripRowView(trip: trip, tripService: tripService, isPast: true)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedTrip = trip
+                                }
                         }
                         .onDelete { indexSet in
                             deleteTrips(from: pastTrips, at: indexSet)
@@ -85,6 +98,9 @@ struct AllTripsView: View {
                         dismiss()
                     }
                 }
+            }
+            .sheet(item: $selectedTrip) { trip in
+                TripDetailView(trip: trip, tripService: tripService)
             }
         }
     }

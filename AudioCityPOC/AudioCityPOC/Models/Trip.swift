@@ -8,7 +8,7 @@
 import Foundation
 
 /// Representa un viaje planificado por el usuario a un destino
-struct Trip: Identifiable, Codable {
+struct Trip: Identifiable, Codable, Hashable {
     let id: String
     let destinationCity: String
     let destinationCountry: String

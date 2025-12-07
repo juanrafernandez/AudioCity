@@ -10,6 +10,7 @@ import MapKit
 
 struct MapExploreView: View {
     @StateObject private var viewModel = ExploreViewModel()
+    @ObservedObject private var tripService = TripService.shared
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 40.3974, longitude: -3.6924), // Default: Madrid
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
@@ -107,13 +108,17 @@ struct MapExploreView: View {
             showsUserLocation: true,
             annotationItems: viewModel.allStops) { stop in
             MapAnnotation(coordinate: stop.coordinate) {
-                StopMarker(stop: stop, isSelected: viewModel.selectedStop?.id == stop.id)
-                    .onTapGesture {
-                        withAnimation {
-                            viewModel.selectedStop = stop
-                            region.center = stop.coordinate
-                        }
+                StopMarker(
+                    stop: stop,
+                    isSelected: viewModel.selectedStop?.id == stop.id,
+                    isFromTrip: tripService.activeRouteIds.contains(stop.routeId)
+                )
+                .onTapGesture {
+                    withAnimation {
+                        viewModel.selectedStop = stop
+                        region.center = stop.coordinate
                     }
+                }
             }
         }
         .edgesIgnoringSafeArea(.all)
@@ -156,15 +161,27 @@ struct MapExploreView: View {
 struct StopMarker: View {
     let stop: Stop
     let isSelected: Bool
+    var isFromTrip: Bool = false
+
+    /// Color del pin según estado
+    private var pinColor: Color {
+        if isSelected {
+            return .blue
+        } else if isFromTrip {
+            return Color(red: 0.8, green: 0.2, blue: 0.6) // Rosa/Magenta para viajes
+        } else {
+            return .orange
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
                 Circle()
-                    .fill(isSelected ? Color.blue : Color.orange)
+                    .fill(pinColor)
                     .frame(width: isSelected ? 44 : 36, height: isSelected ? 44 : 36)
 
-                Image(systemName: "speaker.wave.2.fill")
+                Image(systemName: isFromTrip ? "suitcase.fill" : "speaker.wave.2.fill")
                     .foregroundColor(.white)
                     .font(isSelected ? .body : .caption)
             }
@@ -175,7 +192,7 @@ struct StopMarker: View {
                     .font(.caption2)
                     .fontWeight(.semibold)
                     .padding(6)
-                    .background(Color.blue)
+                    .background(pinColor)
                     .foregroundColor(.white)
                     .cornerRadius(6)
                     .offset(y: 4)

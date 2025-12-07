@@ -10,6 +10,9 @@ import Combine
 
 class TripService: ObservableObject {
 
+    // MARK: - Singleton
+    static let shared = TripService()
+
     // MARK: - Published Properties
     @Published var trips: [Trip] = []
     @Published var availableDestinations: [Destination] = []
@@ -143,6 +146,21 @@ class TripService: ObservableObject {
     /// Obtener viaje por ID
     func getTrip(by id: String) -> Trip? {
         return trips.first { $0.id == id }
+    }
+
+    /// Obtener el viaje activo actual (en curso)
+    var activeTrip: Trip? {
+        return trips.first { $0.isCurrent }
+    }
+
+    /// Obtener todos los route IDs de viajes activos (actuales o próximos sin fecha pasada)
+    var activeRouteIds: Set<String> {
+        let activeTrips = trips.filter { !$0.isPast }
+        var routeIds = Set<String>()
+        for trip in activeTrips {
+            routeIds.formUnion(trip.selectedRouteIds)
+        }
+        return routeIds
     }
 
     /// Cargar destinos disponibles desde Firebase

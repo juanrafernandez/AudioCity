@@ -14,7 +14,7 @@
 import Foundation
 import CoreLocation
 
-struct Route: Identifiable, Codable {
+struct Route: Identifiable, Codable, Hashable {
     let id: String
     let name: String
     let description: String
@@ -45,11 +45,11 @@ struct Route: Identifiable, Codable {
         case endLocation = "end_location"
     }
     
-    struct Location: Codable {
+    struct Location: Codable, Hashable {
         let latitude: Double
         let longitude: Double
         let name: String
-        
+
         var coordinate: CLLocationCoordinate2D {
             CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         }
