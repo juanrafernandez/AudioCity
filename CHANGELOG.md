@@ -35,6 +35,13 @@ Registro de cambios para sincronización entre iOS y Android.
   - Valores por defecto para `triggerRadiusMeters`, `audioDurationSeconds`, `category`
   - `hasBeenVisited` ya no se decodifica de Firebase (estado runtime)
 
+- **feat:** Notificaciones locales al llegar a paradas
+  - Notificación con título "Has llegado a un punto de interés"
+  - Subtítulo con nombre de la parada y descripción
+  - Botones de acción: "Escuchar" y "Saltar"
+  - Imagen adjunta si la parada tiene `imageUrl`
+  - Funciona con app en foreground y background
+
 - **feat:** Pantalla "Todas las Rutas" (`AllRoutesView`)
   - Buscador por nombre, descripción, ciudad, barrio
   - Filtro por dificultad (Fácil/Media/Difícil)

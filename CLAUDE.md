@@ -36,7 +36,8 @@ AudioCityPOC/
 │   ├── FirebaseService.swift    # Conexión a Firestore
 │   ├── TripService.swift        # CRUD de viajes del usuario
 │   ├── FavoritesService.swift   # Gestión de rutas favoritas
-│   └── OfflineCacheService.swift # Descarga y caché offline
+│   ├── OfflineCacheService.swift # Descarga y caché offline
+│   └── NotificationService.swift # Notificaciones locales al llegar a paradas
 ├── ViewModels/
 │   ├── RouteViewModel.swift     # Orquesta servicios para rutas
 │   └── ExploreViewModel.swift   # Mapa de exploración
