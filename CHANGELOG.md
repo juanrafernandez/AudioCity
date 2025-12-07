@@ -8,7 +8,29 @@ Registro de cambios para sincronización entre iOS y Android.
 
 ### iOS (POC)
 
-#### 2024-12-07
+#### 2025-12-07
+- **feat:** Sistema de planificación de viajes estilo Wikiloc
+  - Nueva sección "Mis Viajes" en pantalla de Rutas
+  - Onboarding de 4 pasos: destino → rutas → opciones → resumen
+  - Selección de destino con ciudades disponibles
+  - Selección múltiple de rutas por destino
+  - Opción de fechas del viaje (opcional)
+  - Descarga offline de rutas con estimación de tamaño
+  - Persistencia de viajes en UserDefaults
+
+- **feat:** Rediseño de pantalla de Rutas con secciones
+  - Sección "Top Rutas" (scroll horizontal)
+  - Sección "Rutas de Moda" (scroll horizontal)
+  - Sección "Rutas Turísticas" (lista vertical)
+  - Sección "Todas las Rutas"
+  - Nueva card compacta `RouteCardCompact` para secciones horizontales
+
+- **feat:** Servicio de caché offline (`OfflineCacheService`)
+  - Descarga de rutas y paradas para uso sin conexión
+  - Cálculo de región del mapa para cada ruta
+  - Gestión de espacio en disco
+  - Progreso de descarga con estados
+
 - **feat:** Centrar mapa en ubicación actual del usuario al abrir la app
   - El mapa se posiciona automáticamente en la ubicación del usuario al cargar `MapExploreView`
   - Se inicia tracking de ubicación inmediatamente al aparecer la vista
@@ -37,6 +59,27 @@ Registro de cambios para sincronización entre iOS y Android.
 - [x] Mapa centrado en ubicación actual del usuario al abrir
 - [x] Botón "Mi ubicación" para recentrar manualmente
 
+### Rutas (estilo Wikiloc)
+- [x] Secciones: Top Rutas, Rutas de Moda, Turísticas, Todas
+- [x] Scroll horizontal para secciones destacadas
+- [x] Cards compactas y detalladas
+- [x] Categorización de rutas
+
+### Mis Viajes
+- [x] Planificación de viajes con onboarding
+- [x] Selección de destino por ciudad
+- [x] Selección múltiple de rutas
+- [x] Fechas opcionales del viaje
+- [x] Descarga offline de rutas
+- [x] Persistencia en UserDefaults
+
+### Offline
+- [x] OfflineCacheService para gestión de caché
+- [x] Descarga de rutas y paradas
+- [x] Cálculo de región del mapa
+- [x] Estimación de tamaño de descarga
+- [x] Progreso de descarga con estados
+
 ### Geolocalización
 - [x] Permisos de ubicación (Always para background)
 - [x] Geofences nativos iOS (máx 20, radio 100m) para wake-up
@@ -53,7 +96,7 @@ Registro de cambios para sincronización entre iOS y Android.
 ### Datos
 - [x] Conexión a Firebase Firestore
 - [x] Carga de rutas y paradas
-- [x] Modelos: Route, Stop con CodingKeys para snake_case
+- [x] Modelos: Route, Stop, Trip, CachedRoute
 
 ### UI
 - [x] Splash screen nativo
@@ -67,12 +110,18 @@ Registro de cambios para sincronización entre iOS y Android.
 ## Pendiente para Android
 
 ### Prioridad Alta
+- [ ] Sistema de planificación de viajes (Mis Viajes)
+- [ ] Onboarding de viaje (4 pasos)
+- [ ] Secciones de rutas (Top, Trending, Tourist)
+- [ ] Descarga offline de rutas
 - [ ] Centrar mapa en ubicación del usuario al abrir
 - [ ] Bloquear orientación a Portrait
 - [ ] Implementar geofences con Google Location Services
 - [ ] Cola de audio con Text-to-Speech
 
 ### Prioridad Media
+- [ ] Persistencia de viajes (SharedPreferences/Room)
+- [ ] Caché de mapas offline
 - [ ] Background location tracking
 - [ ] Notificaciones locales al entrar en geofence
 - [ ] Splash screen con logo
@@ -97,6 +146,55 @@ Registro de cambios para sincronización entre iOS y Android.
 | Combine | Flow/StateFlow |
 | @StateObject | viewModel() |
 | @Published | MutableStateFlow |
+| UserDefaults | SharedPreferences / DataStore |
+| FileManager | Context.filesDir |
+
+### Nuevos Modelos de Datos
+
+```
+Trip
+├── id: String
+├── destinationCity: String
+├── destinationCountry: String
+├── selectedRouteIds: [String]
+├── createdAt: Date
+├── startDate: Date? (opcional)
+├── endDate: Date? (opcional)
+├── isOfflineAvailable: Bool
+└── lastSyncDate: Date?
+
+CachedRoute
+├── id: String
+├── tripId: String
+├── route: Route
+├── stops: [Stop]
+├── cachedAt: Date
+├── mapTilesPath: String?
+├── audioFilesPath: String?
+└── totalSizeBytes: Int64
+
+Destination
+├── id: String
+├── city: String
+├── country: String
+├── routeCount: Int
+├── imageUrl: String?
+└── isPopular: Bool
+```
+
+### Arquitectura de Pantalla de Rutas
+
+```
+RoutesListView
+├── Header ("Descubre tu ciudad")
+├── Mis Viajes Section
+│   ├── TripCard (para cada viaje)
+│   └── "Planificar Viaje" button → TripOnboardingView
+├── Top Rutas (horizontal scroll)
+├── Rutas de Moda (horizontal scroll)
+├── Rutas Turísticas (vertical list)
+└── Todas las Rutas
+```
 
 ### Firebase
 - Colección `routes`: Metadatos de rutas
