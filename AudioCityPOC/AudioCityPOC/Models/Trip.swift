@@ -59,6 +59,35 @@ struct Trip: Identifiable, Codable {
         formatter.locale = Locale(identifier: "es_ES")
         return "\(formatter.string(from: start)) - \(formatter.string(from: end))"
     }
+
+    /// Indica si el viaje ya pasó (endDate < hoy)
+    var isPast: Bool {
+        guard let end = endDate else {
+            // Sin fecha de fin, no se considera pasado
+            return false
+        }
+        return Calendar.current.startOfDay(for: end) < Calendar.current.startOfDay(for: Date())
+    }
+
+    /// Indica si el viaje es actual (hoy está entre startDate y endDate)
+    var isCurrent: Bool {
+        guard let start = startDate, let end = endDate else {
+            return false
+        }
+        let today = Calendar.current.startOfDay(for: Date())
+        let startDay = Calendar.current.startOfDay(for: start)
+        let endDay = Calendar.current.startOfDay(for: end)
+        return today >= startDay && today <= endDay
+    }
+
+    /// Indica si el viaje es futuro (startDate > hoy)
+    var isFuture: Bool {
+        guard let start = startDate else {
+            // Sin fecha de inicio, se considera futuro/pendiente
+            return true
+        }
+        return Calendar.current.startOfDay(for: start) > Calendar.current.startOfDay(for: Date())
+    }
 }
 
 /// Destino disponible para viajes

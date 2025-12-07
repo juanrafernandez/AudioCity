@@ -13,6 +13,7 @@ struct RoutesListView: View {
     @StateObject private var favoritesService = FavoritesService()
     @State private var showingTripOnboarding = false
     @State private var showingAllRoutes = false
+    @State private var showingAllTrips = false
 
     var body: some View {
         NavigationView {
@@ -54,6 +55,9 @@ struct RoutesListView: View {
             AllRoutesView(routes: viewModel.availableRoutes) { route in
                 viewModel.selectRoute(route)
             }
+        }
+        .sheet(isPresented: $showingAllTrips) {
+            AllTripsView(tripService: tripService)
         }
     }
 
@@ -142,6 +146,30 @@ struct RoutesListView: View {
     }
 
     // MARK: - My Trips Section
+
+    /// Viajes no pasados (actuales + futuros), ordenados por fecha
+    private var upcomingTrips: [Trip] {
+        tripService.trips
+            .filter { !$0.isPast }
+            .sorted { trip1, trip2 in
+                // Primero los actuales, luego por fecha de inicio
+                if trip1.isCurrent != trip2.isCurrent {
+                    return trip1.isCurrent
+                }
+                return (trip1.startDate ?? .distantFuture) < (trip2.startDate ?? .distantFuture)
+            }
+    }
+
+    /// Total de viajes (incluye pasados)
+    private var totalTripsCount: Int {
+        tripService.trips.count
+    }
+
+    /// Viajes a mostrar en la sección principal (máximo 2)
+    private var visibleTrips: [Trip] {
+        Array(upcomingTrips.prefix(2))
+    }
+
     private var myTripsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -150,6 +178,13 @@ struct RoutesListView: View {
                 Text("Mis Viajes")
                     .font(.headline)
                     .fontWeight(.bold)
+
+                // Contador de viajes visibles / total
+                if totalTripsCount > 0 {
+                    Text("\(visibleTrips.count) de \(totalTripsCount)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
 
                 Spacer()
 
@@ -172,10 +207,31 @@ struct RoutesListView: View {
             if tripService.trips.isEmpty {
                 emptyTripsCard
             } else {
-                ForEach(tripService.trips) { trip in
+                // Mostrar máximo 2 viajes próximos/actuales
+                ForEach(visibleTrips) { trip in
                     TripCard(trip: trip, tripService: tripService) {
                         // TODO: Navigate to trip detail
                     }
+                }
+
+                // Botón "Ver todos" si hay más de 2 viajes
+                if totalTripsCount > 2 {
+                    Button(action: {
+                        showingAllTrips = true
+                    }) {
+                        HStack {
+                            Spacer()
+                            Text("Ver todos")
+                                .font(.subheadline)
+                                .foregroundColor(.purple)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.purple)
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
         }
