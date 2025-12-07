@@ -27,6 +27,7 @@ class RouteViewModel: ObservableObject {
     let audioService = AudioService()
     let geofenceService = GeofenceService()
     let firebaseService = FirebaseService()
+    let notificationService = NotificationService.shared
 
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
@@ -75,6 +76,30 @@ class RouteViewModel: ObservableObject {
                 self?.updateNearestStop(for: location)
             }
             .store(in: &cancellables)
+
+        // Observar acciones de notificación
+        notificationService.$lastAction
+            .compactMap { $0 }
+            .sink { [weak self] action in
+                self?.handleNotificationAction(action)
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Manejar acción del usuario desde notificación
+    private func handleNotificationAction(_ action: NotificationService.NotificationAction) {
+        guard let stopId = notificationService.lastActionStopId else { return }
+
+        switch action {
+        case .listen:
+            // El audio ya se está reproduciendo, no hacer nada
+            print("🎵 RouteViewModel: Usuario confirmó escuchar - \(stopId)")
+
+        case .skip:
+            // Saltar/detener el audio de esta parada
+            print("⏭️ RouteViewModel: Usuario saltó parada - \(stopId)")
+            audioService.stop()
+        }
     }
 
     // MARK: - Public Methods
@@ -157,6 +182,9 @@ class RouteViewModel: ObservableObject {
             return
         }
 
+        // Solicitar permisos de notificaciones
+        notificationService.requestAuthorization()
+
         // Iniciar servicios
         locationService.startTracking()
         geofenceService.setupGeofences(for: stops, locationService: locationService)
@@ -182,6 +210,7 @@ class RouteViewModel: ObservableObject {
         locationService.clearNativeGeofences()  // Limpiar geofences nativos
         geofenceService.clearGeofences()
         audioService.stopAndClear()  // Detener y limpiar cola
+        notificationService.cancelAllPendingNotifications()  // Cancelar notificaciones
 
         isRouteActive = false
         currentStop = nil
@@ -244,6 +273,9 @@ class RouteViewModel: ObservableObject {
 
         // Actualizar contador de visitadas
         visitedStopsCount = getVisitedCount()
+
+        // Mostrar notificación local
+        notificationService.showStopArrivalNotification(stop: stop)
 
         // Encolar audio para reproducción (en vez de reproducir directamente)
         audioService.enqueueStop(
