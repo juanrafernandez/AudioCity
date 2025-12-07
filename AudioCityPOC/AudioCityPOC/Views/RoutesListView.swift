@@ -316,9 +316,64 @@ struct RoutesListView: View {
     }
 
     private var trendingRoutes: [Route] {
-        // Por ahora mostrar las mismas rutas para ver la UI
-        // TODO: Implementar lógica real de trending (por popularidad, recientes, etc.)
-        Array(viewModel.availableRoutes.prefix(5))
+        // Rutas mockeadas para mostrar la sección de moda
+        // TODO: Cargar desde Firebase cuando existan
+        [
+            Route(
+                id: "mock-tapas-lavapies",
+                name: "Ruta de la Tapa por Lavapiés",
+                description: "Descubre los mejores bares de tapas del barrio más multicultural de Madrid",
+                city: "Madrid",
+                neighborhood: "Lavapiés",
+                durationMinutes: 90,
+                distanceKm: 2.5,
+                difficulty: "Fácil",
+                numStops: 8,
+                language: "es",
+                isActive: true,
+                createdAt: "",
+                updatedAt: "",
+                thumbnailUrl: "",
+                startLocation: Route.Location(latitude: 40.4093, longitude: -3.7010, name: "Plaza Lavapiés"),
+                endLocation: Route.Location(latitude: 40.4093, longitude: -3.7010, name: "Plaza Lavapiés")
+            ),
+            Route(
+                id: "mock-navidad-madrid",
+                name: "Ruta de Navidad",
+                description: "Luces, belenes y mercadillos navideños por el centro de Madrid",
+                city: "Madrid",
+                neighborhood: "Centro",
+                durationMinutes: 120,
+                distanceKm: 4.0,
+                difficulty: "Fácil",
+                numStops: 10,
+                language: "es",
+                isActive: true,
+                createdAt: "",
+                updatedAt: "",
+                thumbnailUrl: "",
+                startLocation: Route.Location(latitude: 40.4168, longitude: -3.7038, name: "Puerta del Sol"),
+                endLocation: Route.Location(latitude: 40.4153, longitude: -3.7074, name: "Plaza Mayor")
+            ),
+            Route(
+                id: "mock-blackfriday",
+                name: "Ruta Black Friday",
+                description: "Las mejores tiendas y outlets para aprovechar las ofertas",
+                city: "Madrid",
+                neighborhood: "Salamanca",
+                durationMinutes: 150,
+                distanceKm: 3.5,
+                difficulty: "Media",
+                numStops: 12,
+                language: "es",
+                isActive: true,
+                createdAt: "",
+                updatedAt: "",
+                thumbnailUrl: "",
+                startLocation: Route.Location(latitude: 40.4260, longitude: -3.6833, name: "Serrano"),
+                endLocation: Route.Location(latitude: 40.4230, longitude: -3.6900, name: "Goya")
+            )
+        ]
     }
 
     // MARK: - Empty State
