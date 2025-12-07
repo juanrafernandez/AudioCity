@@ -21,9 +21,19 @@ Registro de cambios para sincronización entre iOS y Android.
 - **feat:** Rediseño de pantalla de Rutas con secciones
   - Sección "Rutas Favoritas" (scroll horizontal, con corazón)
   - Sección "Top Rutas" (scroll horizontal)
-  - Sección "Rutas de Moda" (scroll horizontal)
+  - Sección "Rutas de Moda" (scroll horizontal) - con rutas mock temporales
   - Botón "Todas las Rutas" → abre pantalla con buscador
   - Nueva card compacta `RouteCardCompact` para secciones horizontales
+
+- **feat:** Rutas de Moda mockeadas para UI
+  - Ruta de la Tapa por Lavapiés (gastronomía, 90min)
+  - Ruta de Navidad (luces y mercadillos, 120min)
+  - Ruta Black Friday (compras, 150min)
+
+- **fix:** Modelo Stop con campos opcionales
+  - `funFact`, `imageUrl` ahora opcionales
+  - Valores por defecto para `triggerRadiusMeters`, `audioDurationSeconds`, `category`
+  - `hasBeenVisited` ya no se decodifica de Firebase (estado runtime)
 
 - **feat:** Pantalla "Todas las Rutas" (`AllRoutesView`)
   - Buscador por nombre, descripción, ciudad, barrio

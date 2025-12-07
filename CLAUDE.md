@@ -62,10 +62,18 @@ RoutesListView
 │   ├── [Viajes existentes] → TripCard
 │   └── [+ Planificar] → TripOnboardingView
 ├── ❤️ Rutas Favoritas (scroll horizontal, si hay)
-├── ⭐ Top Rutas (scroll horizontal)
-├── 🔥 Rutas de Moda (scroll horizontal)
+├── ⭐ Top Rutas (scroll horizontal) - ordenadas por nº paradas
+├── 🔥 Rutas de Moda (scroll horizontal) - actualmente mockeadas
 └── 🗺️ [Todas las Rutas] → AllRoutesView (buscador + filtros)
 ```
+
+### Rutas de Moda (Mock)
+Rutas temporales hardcodeadas para visualizar la UI:
+- **Ruta de la Tapa por Lavapiés** - gastronomía, 90min, 8 paradas
+- **Ruta de Navidad** - luces y mercadillos, 120min, 10 paradas
+- **Ruta Black Friday** - compras, 150min, 12 paradas
+
+> TODO: Reemplazar por lógica real de trending (popularidad, recientes, etc.)
 
 ## Flujo de Planificación de Viaje (TripOnboardingView)
 
