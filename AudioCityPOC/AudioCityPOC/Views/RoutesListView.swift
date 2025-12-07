@@ -2,23 +2,24 @@
 //  RoutesListView.swift
 //  AudioCityPOC
 //
-//  Vista con lista de rutas disponibles
+//  Vista principal de rutas con secciones estilo Wikiloc
 //
 
 import SwiftUI
 
 struct RoutesListView: View {
     @StateObject private var viewModel = RouteViewModel()
+    @StateObject private var tripService = TripService()
+    @State private var showingTripOnboarding = false
+    @State private var selectedSection: RouteSection?
 
     var body: some View {
         NavigationView {
             Group {
                 if viewModel.currentRoute != nil {
-                    // Mostrar detalle de ruta seleccionada
                     routeDetailView
                 } else {
-                    // Mostrar lista de rutas
-                    routesListContent
+                    mainContent
                 }
             }
             .navigationTitle(viewModel.currentRoute?.name ?? "Rutas")
@@ -43,11 +44,16 @@ struct RoutesListView: View {
                 viewModel.loadAvailableRoutes()
             }
         }
+        .sheet(isPresented: $showingTripOnboarding) {
+            TripOnboardingView(tripService: tripService, onComplete: { _ in
+                showingTripOnboarding = false
+            })
+        }
     }
 
-    // MARK: - Routes List Content
+    // MARK: - Main Content
     @ViewBuilder
-    private var routesListContent: some View {
+    private var mainContent: some View {
         if viewModel.isLoadingRoutes {
             LoadingView()
         } else if viewModel.availableRoutes.isEmpty {
@@ -59,38 +65,256 @@ struct RoutesListView: View {
                 emptyStateView
             }
         } else {
-            routesList
+            routesSectionsView
         }
     }
 
-    // MARK: - Routes List
-    private var routesList: some View {
+    // MARK: - Routes Sections View
+    private var routesSectionsView: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 24) {
                 // Header
-                VStack(spacing: 8) {
-                    Text("Descubre tu ciudad")
-                        .font(.title2)
-                        .fontWeight(.bold)
+                headerView
+                    .padding(.horizontal)
 
-                    Text("\(viewModel.availableRoutes.count) rutas disponibles")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 20)
-                .padding(.bottom, 10)
+                // Mis Viajes Section
+                myTripsSection
+                    .padding(.horizontal)
 
-                // Lista de rutas
-                ForEach(viewModel.availableRoutes) { route in
-                    RouteCard(route: route) {
-                        viewModel.selectRoute(route)
-                    }
+                // Top Rutas (horizontal scroll)
+                if !topRoutes.isEmpty {
+                    routeSectionHorizontal(
+                        title: "Top Rutas",
+                        icon: "star.fill",
+                        iconColor: .yellow,
+                        routes: topRoutes
+                    )
                 }
+
+                // Rutas de Moda (horizontal scroll)
+                if !trendingRoutes.isEmpty {
+                    routeSectionHorizontal(
+                        title: "Rutas de Moda",
+                        icon: "flame.fill",
+                        iconColor: .orange,
+                        routes: trendingRoutes
+                    )
+                }
+
+                // Rutas Turísticas (vertical list)
+                if !touristRoutes.isEmpty {
+                    routeSectionVertical(
+                        title: "Rutas Turísticas",
+                        icon: "camera.fill",
+                        iconColor: .blue,
+                        routes: touristRoutes
+                    )
+                    .padding(.horizontal)
+                }
+
+                // Todas las rutas
+                allRoutesSection
+                    .padding(.horizontal)
 
                 Spacer(minLength: 40)
             }
-            .padding(.horizontal)
+            .padding(.top, 16)
         }
+    }
+
+    // MARK: - Header
+    private var headerView: some View {
+        VStack(spacing: 8) {
+            Text("Descubre tu ciudad")
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text("\(viewModel.availableRoutes.count) rutas disponibles")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - My Trips Section
+    private var myTripsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "suitcase.fill")
+                    .foregroundColor(.purple)
+                Text("Mis Viajes")
+                    .font(.headline)
+                    .fontWeight(.bold)
+
+                Spacer()
+
+                Button(action: {
+                    showingTripOnboarding = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Planificar")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.purple))
+                }
+            }
+
+            if tripService.trips.isEmpty {
+                emptyTripsCard
+            } else {
+                ForEach(tripService.trips) { trip in
+                    TripCard(trip: trip, tripService: tripService) {
+                        // TODO: Navigate to trip detail
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(UIColor.secondarySystemBackground))
+        )
+    }
+
+    private var emptyTripsCard: some View {
+        Button(action: {
+            showingTripOnboarding = true
+        }) {
+            HStack(spacing: 16) {
+                Image(systemName: "airplane.departure")
+                    .font(.title)
+                    .foregroundColor(.purple.opacity(0.6))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Planifica tu viaje")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+
+                    Text("Selecciona destino y rutas para tenerlas offline")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.purple.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [8]))
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    // MARK: - Horizontal Section
+    private func routeSectionHorizontal(
+        title: String,
+        icon: String,
+        iconColor: Color,
+        routes: [Route]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(iconColor)
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.bold)
+
+                Spacer()
+
+                Button(action: {
+                    // TODO: Ver todas
+                }) {
+                    Text("Ver todas")
+                        .font(.subheadline)
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding(.horizontal)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(routes) { route in
+                        RouteCardCompact(route: route) {
+                            viewModel.selectRoute(route)
+                        }
+                        .frame(width: 280)
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+
+    // MARK: - Vertical Section
+    private func routeSectionVertical(
+        title: String,
+        icon: String,
+        iconColor: Color,
+        routes: [Route]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(iconColor)
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.bold)
+
+                Spacer()
+            }
+
+            ForEach(routes.prefix(3)) { route in
+                RouteCardCompact(route: route) {
+                    viewModel.selectRoute(route)
+                }
+            }
+        }
+    }
+
+    // MARK: - All Routes Section
+    private var allRoutesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "map.fill")
+                    .foregroundColor(.blue)
+                Text("Todas las Rutas")
+                    .font(.headline)
+                    .fontWeight(.bold)
+            }
+
+            ForEach(viewModel.availableRoutes) { route in
+                RouteCard(route: route) {
+                    viewModel.selectRoute(route)
+                }
+            }
+        }
+    }
+
+    // MARK: - Computed Properties for Route Categories
+    private var topRoutes: [Route] {
+        // Por ahora, rutas con más paradas o más populares
+        Array(viewModel.availableRoutes.sorted { $0.numStops > $1.numStops }.prefix(5))
+    }
+
+    private var trendingRoutes: [Route] {
+        // Por ahora, rutas más recientes
+        Array(viewModel.availableRoutes.prefix(5))
+    }
+
+    private var touristRoutes: [Route] {
+        // Por ahora, todas
+        viewModel.availableRoutes
     }
 
     // MARK: - Empty State
@@ -128,35 +352,175 @@ struct RoutesListView: View {
             if viewModel.isRouteActive {
                 MapView(viewModel: viewModel)
             } else {
-                routeContent(route)
+                RouteDetailContent(route: route, viewModel: viewModel)
             }
         }
     }
+}
 
-    // MARK: - Route Content
-    private func routeContent(_ route: Route) -> some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // Header
-                routeHeader(route)
+// MARK: - Route Card Compact
+struct RouteCardCompact: View {
+    let route: Route
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Header con icono
+                HStack {
+                    Image(systemName: categoryIcon)
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(categoryColor)
+                        )
+
+                    Spacer()
+
+                    // Dificultad
+                    Text(route.difficulty.capitalized)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundColor(difficultyColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule().fill(difficultyColor.opacity(0.15))
+                        )
+                }
+
+                // Nombre y ubicación
+                Text(route.name)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .lineLimit(2)
+
+                Text("\(route.neighborhood), \(route.city)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
 
                 // Stats
-                routeStats(route)
+                HStack(spacing: 12) {
+                    Label("\(route.durationMinutes)m", systemImage: "clock")
+                    Label("\(route.numStops)", systemImage: "mappin")
+                }
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(UIColor.systemBackground))
+                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
 
-                // Paradas
+    private var categoryIcon: String {
+        switch route.neighborhood.lowercased() {
+        case "arganzuela": return "building.2.fill"
+        case "centro": return "book.fill"
+        case "chamberí": return "drop.fill"
+        default: return "map.fill"
+        }
+    }
+
+    private var categoryColor: Color {
+        switch route.neighborhood.lowercased() {
+        case "arganzuela": return .orange
+        case "centro": return .purple
+        case "chamberí": return .cyan
+        default: return .blue
+        }
+    }
+
+    private var difficultyColor: Color {
+        switch route.difficulty.lowercased() {
+        case "easy", "fácil": return .green
+        case "medium", "media": return .orange
+        case "hard", "difícil": return .red
+        default: return .blue
+        }
+    }
+}
+
+// MARK: - Trip Card
+struct TripCard: View {
+    let trip: Trip
+    let tripService: TripService
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // Icono de destino
+                Image(systemName: "mappin.circle.fill")
+                    .font(.title)
+                    .foregroundColor(.purple)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(trip.destinationCity)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+
+                    HStack(spacing: 8) {
+                        Text("\(trip.routeCount) rutas")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if trip.isOfflineAvailable {
+                            Label("Offline", systemImage: "arrow.down.circle.fill")
+                                .font(.caption2)
+                                .foregroundColor(.green)
+                        }
+
+                        if let dateRange = trip.dateRangeFormatted {
+                            Text(dateRange)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(UIColor.systemBackground))
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Route Detail Content (extracted from original)
+struct RouteDetailContent: View {
+    let route: Route
+    @ObservedObject var viewModel: RouteViewModel
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                routeHeader
+                routeStats
                 stopsSection
-
-                // Botón de inicio
                 startButton
-
                 Spacer(minLength: 40)
             }
             .padding()
         }
     }
 
-    // MARK: - Route Header
-    private func routeHeader(_ route: Route) -> some View {
+    private var routeHeader: some View {
         VStack(spacing: 12) {
             Image(systemName: "map.fill")
                 .resizable()
@@ -165,8 +529,7 @@ struct RoutesListView: View {
                 .foregroundColor(.blue)
                 .padding()
                 .background(
-                    Circle()
-                        .fill(Color.blue.opacity(0.1))
+                    Circle().fill(Color.blue.opacity(0.1))
                 )
 
             Text(route.name)
@@ -182,36 +545,32 @@ struct RoutesListView: View {
         .padding(.top, 20)
     }
 
-    // MARK: - Route Stats
-    private func routeStats(_ route: Route) -> some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 12) {
-                HStack {
-                    InfoItem(icon: "clock.fill", text: "\(route.durationMinutes) min", color: .orange)
-                    Spacer()
-                    InfoItem(icon: "figure.walk", text: "\(String(format: "%.1f", route.distanceKm)) km", color: .green)
-                    Spacer()
-                    InfoItem(icon: "chart.bar.fill", text: route.difficulty, color: .blue)
-                }
-
-                Divider()
-
-                HStack {
-                    InfoItem(icon: "mappin.circle.fill", text: route.neighborhood, color: .purple)
-                    Spacer()
-                    InfoItem(icon: "checkmark.circle.fill", text: "\(viewModel.stops.count) paradas", color: .teal)
-                }
+    private var routeStats: some View {
+        VStack(spacing: 12) {
+            HStack {
+                InfoItem(icon: "clock.fill", text: "\(route.durationMinutes) min", color: .orange)
+                Spacer()
+                InfoItem(icon: "figure.walk", text: "\(String(format: "%.1f", route.distanceKm)) km", color: .green)
+                Spacer()
+                InfoItem(icon: "chart.bar.fill", text: route.difficulty, color: .blue)
             }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(UIColor.systemBackground))
-                    .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
-            )
+
+            Divider()
+
+            HStack {
+                InfoItem(icon: "mappin.circle.fill", text: route.neighborhood, color: .purple)
+                Spacer()
+                InfoItem(icon: "checkmark.circle.fill", text: "\(viewModel.stops.count) paradas", color: .teal)
+            }
         }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(UIColor.systemBackground))
+                .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
+        )
     }
 
-    // MARK: - Stops Section
     private var stopsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Paradas")
@@ -226,7 +585,6 @@ struct RoutesListView: View {
         }
     }
 
-    // MARK: - Start Button
     private var startButton: some View {
         Button(action: {
             viewModel.startRoute()
@@ -250,7 +608,7 @@ struct RoutesListView: View {
     }
 }
 
-// MARK: - Route Card Component
+// MARK: - Route Card (original, kept for all routes section)
 struct RouteCard: View {
     let route: Route
     let onTap: () -> Void
@@ -258,7 +616,6 @@ struct RouteCard: View {
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 12) {
-                // Header con icono y nombre
                 HStack(spacing: 12) {
                     Image(systemName: categoryIcon)
                         .resizable()
@@ -288,14 +645,12 @@ struct RouteCard: View {
                         .foregroundColor(.secondary)
                 }
 
-                // Descripción
                 Text(route.description)
                     .font(.body)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
-                // Stats
                 HStack(spacing: 16) {
                     Label("\(route.durationMinutes) min", systemImage: "clock")
                         .font(.caption)
@@ -311,7 +666,6 @@ struct RouteCard: View {
 
                     Spacer()
 
-                    // Dificultad badge
                     Text(route.difficulty.capitalized)
                         .font(.caption)
                         .fontWeight(.medium)
@@ -319,8 +673,7 @@ struct RouteCard: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(
-                            Capsule()
-                                .fill(difficultyColor.opacity(0.15))
+                            Capsule().fill(difficultyColor.opacity(0.15))
                         )
                 }
             }
@@ -336,40 +689,28 @@ struct RouteCard: View {
 
     private var categoryIcon: String {
         switch route.neighborhood.lowercased() {
-        case "arganzuela":
-            return "building.2.fill"
-        case "centro":
-            return "book.fill"
-        case "chamberí":
-            return "drop.fill"
-        default:
-            return "map.fill"
+        case "arganzuela": return "building.2.fill"
+        case "centro": return "book.fill"
+        case "chamberí": return "drop.fill"
+        default: return "map.fill"
         }
     }
 
     private var categoryColor: Color {
         switch route.neighborhood.lowercased() {
-        case "arganzuela":
-            return .orange
-        case "centro":
-            return .purple
-        case "chamberí":
-            return .cyan
-        default:
-            return .blue
+        case "arganzuela": return .orange
+        case "centro": return .purple
+        case "chamberí": return .cyan
+        default: return .blue
         }
     }
 
     private var difficultyColor: Color {
         switch route.difficulty.lowercased() {
-        case "easy", "fácil":
-            return .green
-        case "medium", "media":
-            return .orange
-        case "hard", "difícil":
-            return .red
-        default:
-            return .blue
+        case "easy", "fácil": return .green
+        case "medium", "media": return .orange
+        case "hard", "difícil": return .red
+        default: return .blue
         }
     }
 }
