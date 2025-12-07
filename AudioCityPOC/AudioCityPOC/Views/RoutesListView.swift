@@ -10,8 +10,9 @@ import SwiftUI
 struct RoutesListView: View {
     @StateObject private var viewModel = RouteViewModel()
     @StateObject private var tripService = TripService()
+    @StateObject private var favoritesService = FavoritesService()
     @State private var showingTripOnboarding = false
-    @State private var selectedSection: RouteSection?
+    @State private var showingAllRoutes = false
 
     var body: some View {
         NavigationView {
@@ -49,6 +50,11 @@ struct RoutesListView: View {
                 showingTripOnboarding = false
             })
         }
+        .sheet(isPresented: $showingAllRoutes) {
+            AllRoutesView(routes: viewModel.availableRoutes) { route in
+                viewModel.selectRoute(route)
+            }
+        }
     }
 
     // MARK: - Main Content
@@ -81,6 +87,16 @@ struct RoutesListView: View {
                 myTripsSection
                     .padding(.horizontal)
 
+                // Rutas Favoritas (horizontal scroll)
+                if !favoriteRoutes.isEmpty {
+                    routeSectionHorizontal(
+                        title: "Rutas Favoritas",
+                        icon: "heart.fill",
+                        iconColor: .red,
+                        routes: favoriteRoutes
+                    )
+                }
+
                 // Top Rutas (horizontal scroll)
                 if !topRoutes.isEmpty {
                     routeSectionHorizontal(
@@ -101,19 +117,8 @@ struct RoutesListView: View {
                     )
                 }
 
-                // Rutas Turísticas (vertical list)
-                if !touristRoutes.isEmpty {
-                    routeSectionVertical(
-                        title: "Rutas Turísticas",
-                        icon: "camera.fill",
-                        iconColor: .blue,
-                        routes: touristRoutes
-                    )
-                    .padding(.horizontal)
-                }
-
-                // Todas las rutas
-                allRoutesSection
+                // Botón Todas las Rutas
+                allRoutesButton
                     .padding(.horizontal)
 
                 Spacer(minLength: 40)
@@ -256,65 +261,66 @@ struct RoutesListView: View {
         }
     }
 
-    // MARK: - Vertical Section
-    private func routeSectionVertical(
-        title: String,
-        icon: String,
-        iconColor: Color,
-        routes: [Route]
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(iconColor)
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.bold)
+    // MARK: - All Routes Button
+    private var allRoutesButton: some View {
+        Button(action: {
+            showingAllRoutes = true
+        }) {
+            HStack(spacing: 16) {
+                Image(systemName: "map.fill")
+                    .font(.title2)
+                    .foregroundColor(.white)
+                    .frame(width: 50, height: 50)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.blue)
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Todas las Rutas")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+
+                    Text("\(viewModel.availableRoutes.count) rutas con buscador y filtros")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
 
                 Spacer()
-            }
 
-            ForEach(routes.prefix(3)) { route in
-                RouteCardCompact(route: route) {
-                    viewModel.selectRoute(route)
-                }
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
             }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(UIColor.systemBackground))
+                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+            )
         }
-    }
-
-    // MARK: - All Routes Section
-    private var allRoutesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "map.fill")
-                    .foregroundColor(.blue)
-                Text("Todas las Rutas")
-                    .font(.headline)
-                    .fontWeight(.bold)
-            }
-
-            ForEach(viewModel.availableRoutes) { route in
-                RouteCard(route: route) {
-                    viewModel.selectRoute(route)
-                }
-            }
-        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Computed Properties for Route Categories
+    private var favoriteRoutes: [Route] {
+        favoritesService.filterFavorites(from: viewModel.availableRoutes)
+    }
+
     private var topRoutes: [Route] {
-        // Por ahora, rutas con más paradas o más populares
-        Array(viewModel.availableRoutes.sorted { $0.numStops > $1.numStops }.prefix(5))
+        // Rutas con más paradas (excluyendo favoritos para evitar duplicados)
+        Array(viewModel.availableRoutes
+            .filter { !favoritesService.isFavorite($0.id) }
+            .sorted { $0.numStops > $1.numStops }
+            .prefix(5))
     }
 
     private var trendingRoutes: [Route] {
-        // Por ahora, rutas más recientes
-        Array(viewModel.availableRoutes.prefix(5))
-    }
-
-    private var touristRoutes: [Route] {
-        // Por ahora, todas
-        viewModel.availableRoutes
+        // Rutas más recientes (excluyendo favoritos y top)
+        let topIds = Set(topRoutes.map { $0.id })
+        return Array(viewModel.availableRoutes
+            .filter { !favoritesService.isFavorite($0.id) && !topIds.contains($0.id) }
+            .prefix(5))
     }
 
     // MARK: - Empty State
@@ -605,113 +611,6 @@ struct RouteDetailContent: View {
             )
         }
         .padding(.vertical)
-    }
-}
-
-// MARK: - Route Card (original, kept for all routes section)
-struct RouteCard: View {
-    let route: Route
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    Image(systemName: categoryIcon)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 40, height: 40)
-                        .foregroundColor(.white)
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(categoryColor)
-                        )
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(route.name)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-
-                        Text(route.neighborhood + ", " + route.city)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.secondary)
-                }
-
-                Text(route.description)
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-
-                HStack(spacing: 16) {
-                    Label("\(route.durationMinutes) min", systemImage: "clock")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Label("\(String(format: "%.1f", route.distanceKm)) km", systemImage: "figure.walk")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Label("\(route.numStops) paradas", systemImage: "mappin")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    Text(route.difficulty.capitalized)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(difficultyColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule().fill(difficultyColor.opacity(0.15))
-                        )
-                }
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(UIColor.systemBackground))
-                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-
-    private var categoryIcon: String {
-        switch route.neighborhood.lowercased() {
-        case "arganzuela": return "building.2.fill"
-        case "centro": return "book.fill"
-        case "chamberí": return "drop.fill"
-        default: return "map.fill"
-        }
-    }
-
-    private var categoryColor: Color {
-        switch route.neighborhood.lowercased() {
-        case "arganzuela": return .orange
-        case "centro": return .purple
-        case "chamberí": return .cyan
-        default: return .blue
-        }
-    }
-
-    private var difficultyColor: Color {
-        switch route.difficulty.lowercased() {
-        case "easy", "fácil": return .green
-        case "medium", "media": return .orange
-        case "hard", "difícil": return .red
-        default: return .blue
-        }
     }
 }
 
