@@ -19,11 +19,23 @@ Registro de cambios para sincronización entre iOS y Android.
   - Persistencia de viajes en UserDefaults
 
 - **feat:** Rediseño de pantalla de Rutas con secciones
+  - Sección "Rutas Favoritas" (scroll horizontal, con corazón)
   - Sección "Top Rutas" (scroll horizontal)
   - Sección "Rutas de Moda" (scroll horizontal)
-  - Sección "Rutas Turísticas" (lista vertical)
-  - Sección "Todas las Rutas"
+  - Botón "Todas las Rutas" → abre pantalla con buscador
   - Nueva card compacta `RouteCardCompact` para secciones horizontales
+
+- **feat:** Pantalla "Todas las Rutas" (`AllRoutesView`)
+  - Buscador por nombre, descripción, ciudad, barrio
+  - Filtro por dificultad (Fácil/Media/Difícil)
+  - Filtro por ciudad
+  - Ordenación (nombre, duración, distancia, nº paradas)
+  - Botón de favorito en cada card
+
+- **feat:** Sistema de favoritos (`FavoritesService`)
+  - Toggle favorito en rutas
+  - Persistencia en UserDefaults
+  - Sección dedicada en pantalla principal
 
 - **feat:** Servicio de caché offline (`OfflineCacheService`)
   - Descarga de rutas y paradas para uso sin conexión
@@ -60,10 +72,21 @@ Registro de cambios para sincronización entre iOS y Android.
 - [x] Botón "Mi ubicación" para recentrar manualmente
 
 ### Rutas (estilo Wikiloc)
-- [x] Secciones: Top Rutas, Rutas de Moda, Turísticas, Todas
-- [x] Scroll horizontal para secciones destacadas
+- [x] Secciones: Favoritas, Top Rutas, Rutas de Moda (scroll horizontal)
+- [x] Botón "Todas las Rutas" abre pantalla con buscador
 - [x] Cards compactas y detalladas
 - [x] Categorización de rutas
+
+### Favoritos
+- [x] FavoritesService con persistencia
+- [x] Toggle favorito en cards de rutas
+- [x] Sección "Rutas Favoritas" en pantalla principal
+
+### Búsqueda y Filtros (AllRoutesView)
+- [x] Buscador por texto (nombre, descripción, ciudad, barrio)
+- [x] Filtro por dificultad
+- [x] Filtro por ciudad
+- [x] Ordenación múltiple (nombre, duración, distancia, paradas)
 
 ### Mis Viajes
 - [x] Planificación de viajes con onboarding
@@ -112,7 +135,9 @@ Registro de cambios para sincronización entre iOS y Android.
 ### Prioridad Alta
 - [ ] Sistema de planificación de viajes (Mis Viajes)
 - [ ] Onboarding de viaje (4 pasos)
-- [ ] Secciones de rutas (Top, Trending, Tourist)
+- [ ] Secciones de rutas (Favoritas, Top, Trending)
+- [ ] Pantalla AllRoutes con buscador y filtros
+- [ ] Sistema de favoritos
 - [ ] Descarga offline de rutas
 - [ ] Centrar mapa en ubicación del usuario al abrir
 - [ ] Bloquear orientación a Portrait
@@ -120,7 +145,7 @@ Registro de cambios para sincronización entre iOS y Android.
 - [ ] Cola de audio con Text-to-Speech
 
 ### Prioridad Media
-- [ ] Persistencia de viajes (SharedPreferences/Room)
+- [ ] Persistencia de viajes y favoritos (SharedPreferences/Room)
 - [ ] Caché de mapas offline
 - [ ] Background location tracking
 - [ ] Notificaciones locales al entrar en geofence
