@@ -46,7 +46,9 @@ AudioCityPOC/
 │   ├── MainTabView.swift
 │   ├── RoutesListView.swift     # Pantalla principal de rutas (secciones)
 │   ├── AllRoutesView.swift      # Buscador con filtros
+│   ├── AllTripsView.swift       # Lista completa de viajes (pasados/futuros)
 │   ├── TripOnboardingView.swift # Wizard planificar viaje (4 pasos)
+│   ├── TripDetailView.swift     # Detalle de viaje (ver/editar rutas)
 │   ├── MapExploreView.swift     # Mapa con todas las paradas
 │   ├── MapView.swift            # Mapa de ruta activa
 │   ├── RouteDetailView.swift
@@ -58,10 +60,10 @@ AudioCityPOC/
 
 ```
 RoutesListView
-├── Header ("Descubre tu ciudad")
-├── 🧳 Mis Viajes
-│   ├── [Viajes existentes] → TripCard
-│   └── [+ Planificar] → TripOnboardingView
+├── 🧳 Mis Viajes (máx 2 próximos + "Ver todos")
+│   ├── [Viajes existentes] → TripCard → TripDetailView
+│   ├── [+ Planificar] → TripOnboardingView
+│   └── [Ver todos] → AllTripsView
 ├── ❤️ Rutas Favoritas (scroll horizontal, si hay)
 ├── ⭐ Top Rutas (scroll horizontal) - ordenadas por nº paradas
 ├── 🔥 Rutas de Moda (scroll horizontal) - actualmente mockeadas
@@ -117,11 +119,15 @@ struct CachedRoute {
 
 ## Servicios Clave
 
-### TripService
-- `createTrip()` - Crear viaje
+### TripService (Singleton)
+- `TripService.shared` - Instancia compartida
+- `createTrip()` - Crear viaje (valida duplicados)
 - `addRoute(routeId, tripId)` - Añadir ruta a viaje
+- `removeRoute(routeId, tripId)` - Quitar ruta de viaje
 - `deleteTrip()` - Eliminar viaje
 - `loadAvailableDestinations()` - Cargar ciudades desde Firebase
+- `activeRouteIds` - IDs de rutas en viajes activos (para pins rosas en mapa)
+- `tripExists(city, dates)` - Validar duplicados
 - Persistencia en UserDefaults
 
 ### FavoritesService
@@ -211,9 +217,9 @@ xcodebuild -project AudioCityPOC/AudioCityPOC.xcodeproj -scheme AudioCityPOC -de
 
 ## Próximos Pasos Sugeridos
 
-1. **Detalle de viaje** - Vista para ver/editar rutas de un viaje existente
-2. **Creación de rutas por usuario** - Permitir que usuarios creen sus propias rutas (UGC)
-3. **Descarga real de tiles de mapa** - Implementar MKTileOverlay para mapas offline
-4. **Audio pregrabado** - Opción de audio profesional vs TTS
-5. **Gamificación** - Badges por ciudades/rutas completadas
-6. **Integración calendario** - Sugerir rutas según duración del viaje
+1. **Creación de rutas por usuario** - Permitir que usuarios creen sus propias rutas (UGC)
+2. **Descarga real de tiles de mapa** - Implementar MKTileOverlay para mapas offline
+3. **Audio pregrabado** - Opción de audio profesional vs TTS
+4. **Gamificación** - Badges por ciudades/rutas completadas
+5. **Integración calendario** - Sugerir rutas según duración del viaje
+6. **Trending real** - Reemplazar rutas mock por lógica de popularidad

@@ -42,6 +42,33 @@ Registro de cambios para sincronización entre iOS y Android.
   - Imagen adjunta si la parada tiene `imageUrl`
   - Funciona con app en foreground y background
 
+- **feat:** Vista detalle de viaje (`TripDetailView`)
+  - Ver información del viaje (destino, fechas, estado)
+  - Lista de rutas del viaje con botón "Comenzar"
+  - Añadir/quitar rutas del viaje
+  - Eliminar viaje desde menú
+
+- **feat:** Pins rosas en mapa para rutas de viajes
+  - Paradas de rutas en viajes activos se muestran en rosa/magenta
+  - Icono de maleta en lugar de altavoz para distinguirlos
+  - `TripService` como singleton para estado compartido
+
+- **feat:** Sección "Mis Viajes" mejorada
+  - Muestra máximo 2 viajes próximos/actuales
+  - Contador "2 de 6" junto al título
+  - Botón "Ver todos" para abrir `AllTripsView`
+  - Viajes pasados solo visibles en listado completo
+
+- **feat:** Validación de viajes duplicados
+  - No permite crear viajes con mismo destino y mismas fechas
+  - Alerta informativa al usuario
+
+- **fix:** Mejoras de UI en pantalla de Rutas
+  - Cards del carrusel más estrechas (180px)
+  - Nombre de ruta con altura fija para 2 líneas
+  - Botón "Todas las Rutas" alineado con títulos de sección
+  - Eliminado header del mapa (rutas/puntos disponibles)
+
 - **feat:** Pantalla "Todas las Rutas" (`AllRoutesView`)
   - Buscador por nombre, descripción, ciudad, barrio
   - Filtro por dificultad (Fácil/Media/Difícil)
@@ -109,9 +136,14 @@ Registro de cambios para sincronización entre iOS y Android.
 - [x] Planificación de viajes con onboarding
 - [x] Selección de destino por ciudad
 - [x] Selección múltiple de rutas
-- [x] Fechas opcionales del viaje
+- [x] Fechas opcionales del viaje (botón calendario)
 - [x] Descarga offline de rutas
 - [x] Persistencia en UserDefaults
+- [x] Vista detalle de viaje (TripDetailView)
+- [x] Añadir/quitar rutas de un viaje
+- [x] Validación de viajes duplicados
+- [x] Sección limitada a 2 viajes con "Ver todos"
+- [x] Pins rosas en mapa para rutas de viajes activos
 
 ### Offline
 - [x] OfflineCacheService para gestión de caché
@@ -138,12 +170,21 @@ Registro de cambios para sincronización entre iOS y Android.
 - [x] Carga de rutas y paradas
 - [x] Modelos: Route, Stop, Trip, CachedRoute
 
+### Notificaciones
+- [x] NotificationService para notificaciones locales
+- [x] Notificación al llegar a parada con nombre y descripción
+- [x] Botones de acción: "Escuchar" y "Saltar"
+- [x] Imagen adjunta si la parada tiene imageUrl
+- [x] Funciona en foreground y background
+
 ### UI
 - [x] Splash screen nativo
 - [x] Orientación bloqueada a Portrait
 - [x] Marcadores de paradas en mapa con selección
 - [x] Cards de detalle de parada
 - [x] Estados de carga y error
+- [x] Cards de carrusel compactas (180px)
+- [x] Pins rosas para rutas de viajes (icono maleta)
 
 ---
 
