@@ -316,11 +316,9 @@ struct RoutesListView: View {
     }
 
     private var trendingRoutes: [Route] {
-        // Rutas más recientes (excluyendo favoritos y top)
-        let topIds = Set(topRoutes.map { $0.id })
-        return Array(viewModel.availableRoutes
-            .filter { !favoritesService.isFavorite($0.id) && !topIds.contains($0.id) }
-            .prefix(5))
+        // Por ahora mostrar las mismas rutas para ver la UI
+        // TODO: Implementar lógica real de trending (por popularidad, recientes, etc.)
+        Array(viewModel.availableRoutes.prefix(5))
     }
 
     // MARK: - Empty State
