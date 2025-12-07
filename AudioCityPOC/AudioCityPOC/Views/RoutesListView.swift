@@ -83,10 +83,6 @@ struct RoutesListView: View {
     private var routesSectionsView: some View {
         ScrollView {
             VStack(spacing: 24) {
-                // Header
-                headerView
-                    .padding(.horizontal)
-
                 // Mis Viajes Section
                 myTripsSection
                     .padding(.horizontal)
@@ -129,20 +125,6 @@ struct RoutesListView: View {
             }
             .padding(.top, 16)
         }
-    }
-
-    // MARK: - Header
-    private var headerView: some View {
-        VStack(spacing: 8) {
-            Text("Descubre tu ciudad")
-                .font(.title2)
-                .fontWeight(.bold)
-
-            Text("\(viewModel.availableRoutes.count) rutas disponibles")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-        .padding(.bottom, 8)
     }
 
     // MARK: - My Trips Section
