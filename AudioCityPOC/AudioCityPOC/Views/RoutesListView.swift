@@ -311,12 +311,7 @@ struct RoutesListView: View {
             HStack(spacing: 12) {
                 Image(systemName: "map.fill")
                     .font(.title3)
-                    .foregroundColor(.white)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.blue)
-                    )
+                    .foregroundColor(.blue)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Todas las Rutas")
@@ -334,12 +329,6 @@ struct RoutesListView: View {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.secondary)
             }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(UIColor.systemBackground))
-                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
-            )
         }
         .buttonStyle(PlainButtonStyle())
     }
