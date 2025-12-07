@@ -30,12 +30,19 @@ class TripService: ObservableObject {
     // MARK: - Public Methods
 
     /// Crear un nuevo viaje
+    /// - Returns: El viaje creado, o nil si ya existe un viaje duplicado
     func createTrip(
         destinationCity: String,
         destinationCountry: String = "España",
         startDate: Date? = nil,
         endDate: Date? = nil
-    ) -> Trip {
+    ) -> Trip? {
+        // Validar que no exista un viaje duplicado (mismo destino + mismas fechas)
+        if tripExists(city: destinationCity, startDate: startDate, endDate: endDate) {
+            print("⚠️ TripService: Ya existe un viaje a \(destinationCity) con esas fechas")
+            return nil
+        }
+
         let trip = Trip(
             destinationCity: destinationCity,
             destinationCountry: destinationCountry,
@@ -48,6 +55,28 @@ class TripService: ObservableObject {
 
         print("✅ TripService: Viaje creado - \(destinationCity)")
         return trip
+    }
+
+    /// Verificar si ya existe un viaje con el mismo destino y fechas
+    func tripExists(city: String, startDate: Date?, endDate: Date?) -> Bool {
+        return trips.contains { trip in
+            let sameCity = trip.destinationCity.lowercased() == city.lowercased()
+            let sameDates = areDatesEqual(trip.startDate, startDate) && areDatesEqual(trip.endDate, endDate)
+            return sameCity && sameDates
+        }
+    }
+
+    /// Comparar fechas (nil == nil es true, y compara solo día/mes/año)
+    private func areDatesEqual(_ date1: Date?, _ date2: Date?) -> Bool {
+        switch (date1, date2) {
+        case (nil, nil):
+            return true
+        case (let d1?, let d2?):
+            let calendar = Calendar.current
+            return calendar.isDate(d1, inSameDayAs: d2)
+        default:
+            return false
+        }
     }
 
     /// Añadir ruta a un viaje

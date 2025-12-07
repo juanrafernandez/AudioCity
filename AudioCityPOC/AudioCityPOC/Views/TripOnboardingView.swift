@@ -24,6 +24,7 @@ struct TripOnboardingView: View {
     @State private var downloadOffline = true
     @State private var isLoadingRoutes = false
     @State private var isCreatingTrip = false
+    @State private var showDuplicateAlert = false
 
     @Environment(\.dismiss) private var dismiss
 
@@ -62,6 +63,11 @@ struct TripOnboardingView: View {
             Task {
                 await tripService.loadAvailableDestinations()
             }
+        }
+        .alert("Viaje duplicado", isPresented: $showDuplicateAlert) {
+            Button("Entendido", role: .cancel) { }
+        } message: {
+            Text("Ya tienes un viaje a este destino con las mismas fechas. Modifica las fechas o elige otro destino.")
         }
     }
 
@@ -291,13 +297,43 @@ struct TripOnboardingView: View {
 
                 // Fechas
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle(isOn: $includeDates) {
-                        HStack {
+                    Button(action: { includeDates.toggle() }) {
+                        HStack(spacing: 12) {
                             Image(systemName: "calendar")
-                                .foregroundColor(.purple)
-                            Text("Añadir fechas del viaje")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .frame(width: 44, height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(includeDates ? Color.purple : Color.gray)
+                                )
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Fechas del viaje")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                Text(includeDates ? "Toca para quitar fechas" : "Toca para añadir fechas")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            if includeDates {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.purple)
+                                    .font(.title2)
+                            }
                         }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(UIColor.systemBackground))
+                                .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
+                        )
                     }
+                    .buttonStyle(PlainButtonStyle())
                     .padding(.horizontal)
 
                     if includeDates {
@@ -507,13 +543,18 @@ struct TripOnboardingView: View {
 
         isCreatingTrip = true
 
-        // Crear el viaje
-        var trip = tripService.createTrip(
+        // Crear el viaje (devuelve nil si ya existe duplicado)
+        guard var trip = tripService.createTrip(
             destinationCity: destination.city,
             destinationCountry: destination.country,
             startDate: includeDates ? startDate : nil,
             endDate: includeDates ? endDate : nil
-        )
+        ) else {
+            // Ya existe un viaje duplicado
+            isCreatingTrip = false
+            showDuplicateAlert = true
+            return
+        }
 
         // Añadir rutas seleccionadas
         for routeId in selectedRouteIds {
