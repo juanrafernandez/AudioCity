@@ -11,10 +11,11 @@ import MapKit
 struct MapExploreView: View {
     @StateObject private var viewModel = ExploreViewModel()
     @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 40.3974, longitude: -3.6924), // Madrid - Arganzuela
+        center: CLLocationCoordinate2D(latitude: 40.3974, longitude: -3.6924), // Default: Madrid
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
     )
     @State private var showStopDetail = false
+    @State private var hasCenteredOnUser = false
 
     var body: some View {
         NavigationView {
@@ -86,6 +87,17 @@ struct MapExploreView: View {
         .onAppear {
             viewModel.loadAllStops()
             viewModel.locationService.requestLocationPermission()
+            viewModel.locationService.startTracking()
+        }
+        .onReceive(viewModel.locationService.$userLocation) { location in
+            // Centrar en la ubicación del usuario solo la primera vez
+            if !hasCenteredOnUser, let userLocation = location {
+                withAnimation {
+                    region.center = userLocation.coordinate
+                    region.span = MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                }
+                hasCenteredOnUser = true
+            }
         }
     }
 
