@@ -26,12 +26,26 @@ struct MainTabView: View {
                 }
                 .tag(1)
 
-            // Tab 3: Perfil
+            // Tab 3: Mis Rutas
+            MyRoutesView()
+                .tabItem {
+                    Label("Mis Rutas", systemImage: "pencil.and.list.clipboard")
+                }
+                .tag(2)
+
+            // Tab 4: Historial
+            HistoryView()
+                .tabItem {
+                    Label("Historial", systemImage: "clock.arrow.circlepath")
+                }
+                .tag(3)
+
+            // Tab 5: Perfil
             ProfileView()
                 .tabItem {
                     Label("Perfil", systemImage: "person.fill")
                 }
-                .tag(2)
+                .tag(4)
         }
         .accentColor(.blue)
     }
