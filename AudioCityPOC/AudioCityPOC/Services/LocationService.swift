@@ -18,7 +18,7 @@ import Foundation
 import CoreLocation
 import Combine
 
-class LocationService: NSObject, ObservableObject {
+class LocationService: NSObject, ObservableObject, LocationServiceProtocol {
 
     // MARK: - Published Properties
     @Published var userLocation: CLLocation?
@@ -85,6 +85,24 @@ class LocationService: NSObject, ObservableObject {
         locationManager.stopUpdatingLocation()
         isTracking = false
         print("📍 LocationService: Tracking detenido")
+    }
+
+    // MARK: - Single Location Request
+
+    private var singleLocationCompletion: ((CLLocation?) -> Void)?
+
+    /// Solicitar una única ubicación (útil antes de iniciar la ruta)
+    func requestSingleLocation(completion: @escaping (CLLocation?) -> Void) {
+        guard authorizationStatus == .authorizedAlways ||
+              authorizationStatus == .authorizedWhenInUse else {
+            print("📍 LocationService: Sin permisos para ubicación única")
+            completion(nil)
+            return
+        }
+
+        singleLocationCompletion = completion
+        locationManager.requestLocation()
+        print("📍 LocationService: Solicitando ubicación única...")
     }
 
     /// Obtener distancia a una coordenada
@@ -154,22 +172,36 @@ class LocationService: NSObject, ObservableObject {
 // MARK: - CLLocationManagerDelegate
 extension LocationService: CLLocationManagerDelegate {
     
-    func locationManager(_ manager: CLLocationManager, 
+    func locationManager(_ manager: CLLocationManager,
                         didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
-        
+
         // Actualizar ubicación del usuario
         DispatchQueue.main.async {
             self.userLocation = location
+
+            // Si hay un callback pendiente de ubicación única, llamarlo
+            if let completion = self.singleLocationCompletion {
+                print("📍 LocationService: Ubicación única obtenida")
+                completion(location)
+                self.singleLocationCompletion = nil
+            }
         }
-        
+
         print("📍 LocationService: Nueva ubicación - \(location.coordinate.latitude), \(location.coordinate.longitude)")
     }
-    
-    func locationManager(_ manager: CLLocationManager, 
+
+    func locationManager(_ manager: CLLocationManager,
                         didFailWithError error: Error) {
         DispatchQueue.main.async {
             self.locationError = error.localizedDescription
+
+            // Si hay un callback pendiente, llamarlo con nil
+            if let completion = self.singleLocationCompletion {
+                print("📍 LocationService: Error obteniendo ubicación única")
+                completion(nil)
+                self.singleLocationCompletion = nil
+            }
         }
         print("❌ LocationService: Error - \(error.localizedDescription)")
     }

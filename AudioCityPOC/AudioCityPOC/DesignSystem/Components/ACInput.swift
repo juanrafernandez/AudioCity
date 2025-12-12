@@ -60,7 +60,7 @@ struct ACTextField: View {
             .cornerRadius(ACRadius.md)
             .overlay(
                 RoundedRectangle(cornerRadius: ACRadius.md)
-                    .stroke(borderColor, lineWidth: isFocused ? 2 : 1)
+                    .stroke(borderColor, lineWidth: isFocused ? ACBorder.thick : ACBorder.thin)
             )
 
             // Mensaje de error
@@ -133,7 +133,7 @@ struct ACSearchField: View {
         .cornerRadius(ACRadius.full)
         .overlay(
             RoundedRectangle(cornerRadius: ACRadius.full)
-                .stroke(isFocused ? ACColors.primary : ACColors.border, lineWidth: isFocused ? 2 : 1)
+                .stroke(isFocused ? ACColors.primary : ACColors.border, lineWidth: isFocused ? ACBorder.thick : ACBorder.thin)
         )
         .animation(ACAnimation.easeOut, value: isFocused)
     }

@@ -292,11 +292,14 @@ struct ACMetaBadge: View {
 // MARK: - Status Badge
 
 struct ACStatusBadge: View {
-    enum Status {
+    enum BadgeStatus {
         case active
         case completed
         case draft
         case warning
+        case error
+        case inactive
+        case pending
 
         var color: Color {
             switch self {
@@ -304,6 +307,9 @@ struct ACStatusBadge: View {
             case .completed: return ACColors.info
             case .draft: return ACColors.warning
             case .warning: return ACColors.warning
+            case .error: return ACColors.error
+            case .inactive: return ACColors.textTertiary
+            case .pending: return ACColors.warning
             }
         }
 
@@ -313,12 +319,15 @@ struct ACStatusBadge: View {
             case .completed: return ACColors.infoLight
             case .draft: return ACColors.warningLight
             case .warning: return ACColors.warningLight
+            case .error: return ACColors.errorLight
+            case .inactive: return ACColors.borderLight
+            case .pending: return ACColors.warningLight
             }
         }
     }
 
     let text: String
-    let status: Status
+    let status: BadgeStatus
 
     var body: some View {
         Text(text)

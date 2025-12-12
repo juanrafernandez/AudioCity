@@ -18,8 +18,8 @@ import FirebaseCore
 import FirebaseFirestore
 import Combine
 
-class FirebaseService: ObservableObject {
-    
+class FirebaseService: ObservableObject, FirebaseServiceProtocol {
+
     // MARK: - Published Properties
     @Published var isLoading = false
     @Published var errorMessage: String?

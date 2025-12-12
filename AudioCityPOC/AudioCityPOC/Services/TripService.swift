@@ -19,13 +19,16 @@ class TripService: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    // MARK: - Private Properties
-    private let userDefaults = UserDefaults.standard
-    private let tripsKey = "userTrips"
+    // MARK: - Dependencies
+    private let repository: TripRepositoryProtocol
     private let firebaseService: FirebaseService
 
     // MARK: - Initialization
-    init(firebaseService: FirebaseService = FirebaseService()) {
+    init(
+        repository: TripRepositoryProtocol = TripRepository(),
+        firebaseService: FirebaseService = FirebaseService()
+    ) {
+        self.repository = repository
         self.firebaseService = firebaseService
         loadTrips()
     }
@@ -207,16 +210,8 @@ class TripService: ObservableObject {
     // MARK: - Private Methods
 
     private func loadTrips() {
-        guard let data = userDefaults.data(forKey: tripsKey) else {
-            trips = []
-            return
-        }
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
         do {
-            trips = try decoder.decode([Trip].self, from: data)
+            trips = try repository.loadTrips()
             print("✅ TripService: \(trips.count) viajes cargados")
         } catch {
             print("❌ TripService: Error cargando viajes - \(error.localizedDescription)")
@@ -225,12 +220,8 @@ class TripService: ObservableObject {
     }
 
     private func saveTrips() {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-
         do {
-            let data = try encoder.encode(trips)
-            userDefaults.set(data, forKey: tripsKey)
+            try repository.saveTrips(trips)
         } catch {
             print("❌ TripService: Error guardando viajes - \(error.localizedDescription)")
         }

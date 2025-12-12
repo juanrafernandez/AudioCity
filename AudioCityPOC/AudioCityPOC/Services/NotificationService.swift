@@ -10,7 +10,7 @@ import UserNotifications
 import UIKit
 import Combine
 
-class NotificationService: NSObject, ObservableObject {
+class NotificationService: NSObject, ObservableObject, NotificationServiceProtocol {
 
     // MARK: - Singleton
     static let shared = NotificationService()

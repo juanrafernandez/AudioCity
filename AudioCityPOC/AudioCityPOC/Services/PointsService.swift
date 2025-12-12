@@ -18,17 +18,64 @@ class PointsService: ObservableObject {
     @Published var transactions: [PointsTransaction] = []
     @Published var recentLevelUp: UserLevel? = nil
 
+    // MARK: - Dependencies
+    private let repository: PointsRepositoryProtocol
+
     // MARK: - Private Properties
-    private let userDefaults = UserDefaults.standard
-    private let statsKey = "userPointsStats"
-    private let transactionsKey = "pointsTransactions"
-    private let completedRoutesTodayKey = "completedRoutesToday"
-    private let lastCompletionDateKey = "lastRouteCompletionDate"
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initialization
-    init() {
+    init(repository: PointsRepositoryProtocol = PointsRepository()) {
+        self.repository = repository
         loadData()
         checkAndResetDailyStats()
+        setupEventSubscriptions()
+    }
+
+    // MARK: - Event Subscriptions
+
+    /// Suscribirse a eventos del EventBus
+    private func setupEventSubscriptions() {
+        // Escuchar eventos de ruta completada
+        EventBus.shared.routeEvents
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] event in
+                switch event {
+                case .routeCompleted(let routeId, let routeName):
+                    self?.awardPointsForCompletingRoute(routeId: routeId, routeName: routeName)
+                default:
+                    break
+                }
+            }
+            .store(in: &cancellables)
+
+        // Escuchar eventos de rutas de usuario
+        EventBus.shared.userRouteEvents
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] event in
+                switch event {
+                case .routeCreated(let routeId, let routeName, let stopsCount):
+                    self?.awardPointsForCreatingRoute(routeId: routeId, routeName: routeName, stopsCount: stopsCount)
+                case .routePublished(let routeId, let routeName):
+                    self?.awardPointsForPublishingRoute(routeId: routeId, routeName: routeName)
+                case .routeUsedByOther(let routeId, let routeName):
+                    self?.awardPointsForRouteUsedByOther(routeId: routeId, routeName: routeName)
+                }
+            }
+            .store(in: &cancellables)
+
+        print("📡 PointsService: Suscrito a eventos")
+    }
+
+    /// Otorgar puntos cuando otro usuario usa una de tus rutas
+    func awardPointsForRouteUsedByOther(routeId: String, routeName: String) {
+        let transaction = PointsTransaction(
+            action: .routeUsedByOthers,
+            routeId: routeId,
+            routeName: routeName
+        )
+        addTransaction(transaction)
+        print("✅ PointsService: +\(PointsAction.routeUsedByOthers.points) pts - tu ruta '\(routeName)' fue usada")
     }
 
     // MARK: - Public Methods
@@ -144,7 +191,7 @@ class PointsService: ObservableObject {
 
     private func checkFirstRouteOfDay(routeId: String, routeName: String) {
         let today = Calendar.current.startOfDay(for: Date())
-        let lastDate = userDefaults.object(forKey: lastCompletionDateKey) as? Date
+        let lastDate = try? repository.loadLastCompletionDate()
         let lastCompletionDay = lastDate.map { Calendar.current.startOfDay(for: $0) }
 
         if lastCompletionDay != today {
@@ -158,7 +205,7 @@ class PointsService: ObservableObject {
             print("✅ PointsService: +\(PointsAction.firstRouteOfDay.points) pts - Primera ruta del día")
         }
 
-        userDefaults.set(Date(), forKey: lastCompletionDateKey)
+        try? repository.saveLastCompletionDate(Date())
     }
 
     private func updateStreak() {
@@ -225,34 +272,23 @@ class PointsService: ObservableObject {
     // MARK: - Persistence
 
     private func loadData() {
-        // Cargar stats
-        if let statsData = userDefaults.data(forKey: statsKey) {
-            let decoder = JSONDecoder()
-            if let decoded = try? decoder.decode(UserPointsStats.self, from: statsData) {
-                stats = decoded
-            }
+        do {
+            stats = try repository.loadStats()
+            transactions = try repository.loadTransactions()
+            print("✅ PointsService: Datos cargados - \(stats.totalPoints) pts, Nivel \(stats.currentLevel.name)")
+        } catch {
+            print("❌ PointsService: Error cargando datos - \(error.localizedDescription)")
+            stats = UserPointsStats()
+            transactions = []
         }
-
-        // Cargar transacciones
-        if let transData = userDefaults.data(forKey: transactionsKey) {
-            let decoder = JSONDecoder()
-            if let decoded = try? decoder.decode([PointsTransaction].self, from: transData) {
-                transactions = decoded
-            }
-        }
-
-        print("✅ PointsService: Datos cargados - \(stats.totalPoints) pts, Nivel \(stats.currentLevel.name)")
     }
 
     private func saveData() {
-        let encoder = JSONEncoder()
-
-        if let statsData = try? encoder.encode(stats) {
-            userDefaults.set(statsData, forKey: statsKey)
-        }
-
-        if let transData = try? encoder.encode(transactions) {
-            userDefaults.set(transData, forKey: transactionsKey)
+        do {
+            try repository.saveStats(stats)
+            try repository.saveTransactions(transactions)
+        } catch {
+            print("❌ PointsService: Error guardando datos - \(error.localizedDescription)")
         }
     }
 }

@@ -215,41 +215,8 @@ struct ACBreadcrumb: View {
     }
 }
 
-// MARK: - Progress Indicator
-
-struct ACProgressBar: View {
-    let progress: Double
-    var height: CGFloat = 8
-    var backgroundColor: Color = ACColors.borderLight
-    var foregroundColor: Color = ACColors.primary
-    var showLabel: Bool = false
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: ACSpacing.xs) {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: height / 2)
-                        .fill(backgroundColor)
-                        .frame(height: height)
-
-                    RoundedRectangle(cornerRadius: height / 2)
-                        .fill(foregroundColor)
-                        .frame(width: max(0, geometry.size.width * min(1, progress)), height: height)
-                        .animation(ACAnimation.spring, value: progress)
-                }
-            }
-            .frame(height: height)
-
-            if showLabel {
-                Text("\(Int(progress * 100))%")
-                    .font(ACTypography.caption)
-                    .foregroundColor(ACColors.textSecondary)
-            }
-        }
-    }
-}
-
 // MARK: - Step Indicator
+// Note: ACProgressBar has been moved to ACProgress.swift
 
 struct ACStepIndicator: View {
     let totalSteps: Int
@@ -329,7 +296,7 @@ struct ACStepIndicator: View {
         // Progress bar
         VStack(spacing: ACSpacing.md) {
             ACProgressBar(progress: 0.65, showLabel: true)
-            ACProgressBar(progress: 0.3, foregroundColor: ACColors.secondary)
+            ACProgressBar(progress: 0.3, color: ACColors.secondary)
         }
         .padding(.horizontal)
 

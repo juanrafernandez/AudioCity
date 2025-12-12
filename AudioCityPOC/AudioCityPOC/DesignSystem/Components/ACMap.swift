@@ -286,7 +286,7 @@ struct ACNowPlayingCard: View {
     var body: some View {
         VStack(spacing: ACSpacing.md) {
             // Progress
-            ACProgressBar(progress: progress, height: 4, foregroundColor: ACColors.primary)
+            ACProgressBar(progress: progress, height: 4, color: ACColors.primary)
 
             HStack(spacing: ACSpacing.md) {
                 // Stop info
@@ -367,7 +367,7 @@ struct ACNowPlayingCard: View {
                 }
             }
 
-            Divider()
+            SwiftUI.Divider()
 
             // Info Card
             Text("Map Info Card")
@@ -383,7 +383,7 @@ struct ACNowPlayingCard: View {
             )
             .padding(.horizontal)
 
-            Divider()
+            SwiftUI.Divider()
 
             // Route Path
             Text("Route Progress")
@@ -392,7 +392,7 @@ struct ACNowPlayingCard: View {
             ACRoutePathIndicator(stops: 6, currentStop: 2, isActive: true)
                 .padding(.horizontal, ACSpacing.xl)
 
-            Divider()
+            SwiftUI.Divider()
 
             // Now Playing
             Text("Now Playing")
@@ -410,7 +410,7 @@ struct ACNowPlayingCard: View {
             )
             .padding(.horizontal)
 
-            Divider()
+            SwiftUI.Divider()
 
             // Location Permission
             Text("Location Permission")

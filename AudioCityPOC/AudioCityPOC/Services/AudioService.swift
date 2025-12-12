@@ -31,7 +31,7 @@ struct AudioQueueItem: Identifiable, Equatable {
     }
 }
 
-class AudioService: NSObject, ObservableObject {
+class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
 
     // MARK: - Published Properties
     @Published var isPlaying = false
@@ -39,27 +39,30 @@ class AudioService: NSObject, ObservableObject {
     @Published var currentText: String?
     @Published var currentQueueItem: AudioQueueItem?
     @Published var queuedItems: [AudioQueueItem] = []
+    @Published var currentVoiceQuality: String = "default"
 
     // MARK: - Private Properties
     private let synthesizer = AVSpeechSynthesizer()
     private let audioSession = AVAudioSession.sharedInstance()
     private var audioQueue: [AudioQueueItem] = []
     private var processedStopIds: Set<String> = []  // Evitar duplicados
-    
+    private var cachedVoice: AVSpeechSynthesisVoice?
+
     // MARK: - Initialization
     override init() {
         super.init()
         synthesizer.delegate = self
         setupAudioSession()
+        selectBestVoice(for: "es-ES")
     }
-    
+
     // MARK: - Setup
-    
+
     /// Configurar sesión de audio para background
     private func setupAudioSession() {
         do {
             // CRÍTICO: Configuración para funcionar en background
-            try audioSession.setCategory(.playback, 
+            try audioSession.setCategory(.playback,
                                         mode: .spokenAudio,
                                         options: [.duckOthers])
             try audioSession.setActive(true)
@@ -67,6 +70,93 @@ class AudioService: NSObject, ObservableObject {
         } catch {
             print("❌ AudioService: Error configurando audio session - \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Voice Selection
+
+    /// Selecciona la mejor voz disponible para el idioma especificado
+    /// Prioriza: Premium > Enhanced > Default
+    private func selectBestVoice(for language: String) {
+        let allVoices = AVSpeechSynthesisVoice.speechVoices()
+
+        // Filtrar voces para el idioma (ej: "es-ES", "es-MX", etc.)
+        let languagePrefix = String(language.prefix(2)) // "es"
+        let voicesForLanguage = allVoices.filter { $0.language.hasPrefix(languagePrefix) }
+
+        // Log todas las voces disponibles para el idioma
+        print("🎤 AudioService: Voces disponibles para '\(language)':")
+        for voice in voicesForLanguage {
+            let qualityName = voiceQualityName(voice.quality)
+            print("   - \(voice.name) (\(voice.language)) - Quality: \(qualityName)")
+        }
+
+        // Buscar la mejor voz en orden de prioridad
+        // 1. Premium (quality == .premium) - Solo iOS 16+
+        if let premiumVoice = voicesForLanguage.first(where: { $0.quality == .premium }) {
+            cachedVoice = premiumVoice
+            currentVoiceQuality = "Premium"
+            print("✨ AudioService: Usando voz PREMIUM: \(premiumVoice.name)")
+            return
+        }
+
+        // 2. Enhanced (quality == .enhanced)
+        if let enhancedVoice = voicesForLanguage.first(where: { $0.quality == .enhanced }) {
+            cachedVoice = enhancedVoice
+            currentVoiceQuality = "Enhanced"
+            print("⭐ AudioService: Usando voz ENHANCED: \(enhancedVoice.name)")
+            return
+        }
+
+        // 3. Preferir voces del idioma exacto (es-ES sobre es-MX)
+        if let exactMatch = voicesForLanguage.first(where: { $0.language == language }) {
+            cachedVoice = exactMatch
+            currentVoiceQuality = "Default"
+            print("📢 AudioService: Usando voz DEFAULT (coincidencia exacta): \(exactMatch.name)")
+            return
+        }
+
+        // 4. Cualquier voz del idioma
+        if let anyVoice = voicesForLanguage.first {
+            cachedVoice = anyVoice
+            currentVoiceQuality = "Default"
+            print("📢 AudioService: Usando voz DEFAULT: \(anyVoice.name)")
+            return
+        }
+
+        // 5. Fallback al sistema
+        cachedVoice = AVSpeechSynthesisVoice(language: language)
+        currentVoiceQuality = "System"
+        print("⚠️ AudioService: Usando voz del SISTEMA para '\(language)'")
+    }
+
+    private func voiceQualityName(_ quality: AVSpeechSynthesisVoiceQuality) -> String {
+        switch quality {
+        case .default:
+            return "Default"
+        case .enhanced:
+            return "Enhanced"
+        case .premium:
+            return "Premium"
+        @unknown default:
+            return "Unknown"
+        }
+    }
+
+    /// Obtiene la mejor voz para un idioma (con caché)
+    private func getBestVoice(for language: String) -> AVSpeechSynthesisVoice? {
+        // Si el idioma cambia, recalcular
+        if let cached = cachedVoice, cached.language.hasPrefix(String(language.prefix(2))) {
+            return cached
+        }
+        selectBestVoice(for: language)
+        return cachedVoice
+    }
+
+    /// Lista las voces premium/enhanced disponibles (útil para debug o UI)
+    func getAvailableHighQualityVoices() -> [(name: String, language: String, quality: String)] {
+        return AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.quality == .premium || $0.quality == .enhanced }
+            .map { (name: $0.name, language: $0.language, quality: voiceQualityName($0.quality)) }
     }
     
     // MARK: - Public Methods
@@ -80,19 +170,21 @@ class AudioService: NSObject, ObservableObject {
 
         currentText = text
 
-        // Crear utterance
+        // Crear utterance con la mejor voz disponible
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: language)
-        utterance.rate = 0.50 // Velocidad natural (0.0 - 1.0)
+        utterance.voice = getBestVoice(for: language)
+        utterance.rate = 0.52 // Velocidad ligeramente más natural
         utterance.pitchMultiplier = 1.0
         utterance.volume = 1.0
+        utterance.preUtteranceDelay = 0.1 // Pequeña pausa antes de empezar
+        utterance.postUtteranceDelay = 0.2 // Pequeña pausa después
 
         // Reproducir
         synthesizer.speak(utterance)
         isPlaying = true
         isPaused = false
 
-        print("🔊 AudioService: Reproduciendo - '\(text.prefix(50))...'")
+        print("🔊 AudioService: Reproduciendo (\(currentVoiceQuality)) - '\(text.prefix(50))...'")
     }
 
     // MARK: - Queue Methods
@@ -142,19 +234,21 @@ class AudioService: NSObject, ObservableObject {
         currentText = item.text
         updateQueuedItems()
 
-        // Crear utterance
+        // Crear utterance con la mejor voz disponible
         let utterance = AVSpeechUtterance(string: item.text)
-        utterance.voice = AVSpeechSynthesisVoice(language: language)
-        utterance.rate = 0.50
+        utterance.voice = getBestVoice(for: language)
+        utterance.rate = 0.52 // Velocidad ligeramente más natural
         utterance.pitchMultiplier = 1.0
         utterance.volume = 1.0
+        utterance.preUtteranceDelay = 0.1
+        utterance.postUtteranceDelay = 0.3 // Pausa entre paradas
 
         // Reproducir
         synthesizer.speak(utterance)
         isPlaying = true
         isPaused = false
 
-        print("🔊 AudioService: Reproduciendo parada '\(item.stopName)' - '\(item.text.prefix(50))...'")
+        print("🔊 AudioService: Reproduciendo parada '\(item.stopName)' (\(currentVoiceQuality)) - '\(item.text.prefix(50))...'")
     }
 
     /// Actualizar la lista de items en cola (para UI)

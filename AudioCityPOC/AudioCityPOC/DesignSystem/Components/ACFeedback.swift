@@ -362,6 +362,151 @@ struct ACNotificationBadge: View {
     }
 }
 
+// MARK: - Compact Empty State
+
+/// Estado vacío compacto para listas
+struct ACEmptyStateCompact: View {
+    let icon: String
+    let title: String
+    let description: String?
+
+    init(
+        icon: String,
+        title: String,
+        description: String? = nil
+    ) {
+        self.icon = icon
+        self.title = title
+        self.description = description
+    }
+
+    var body: some View {
+        VStack(spacing: ACSpacing.md) {
+            Image(systemName: icon)
+                .font(.system(size: 32))
+                .foregroundColor(ACColors.textTertiary)
+
+            VStack(spacing: ACSpacing.xs) {
+                Text(title)
+                    .font(ACTypography.titleMedium)
+                    .foregroundColor(ACColors.textSecondary)
+
+                if let description = description {
+                    Text(description)
+                        .font(ACTypography.bodySmall)
+                        .foregroundColor(ACColors.textTertiary)
+                }
+            }
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(ACSpacing.xxl)
+    }
+}
+
+// MARK: - No Results State
+
+/// Estado sin resultados de búsqueda
+struct ACNoResultsState: View {
+    let searchTerm: String
+    let onClearSearch: (() -> Void)?
+
+    init(searchTerm: String, onClearSearch: (() -> Void)? = nil) {
+        self.searchTerm = searchTerm
+        self.onClearSearch = onClearSearch
+    }
+
+    var body: some View {
+        VStack(spacing: ACSpacing.lg) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 48))
+                .foregroundColor(ACColors.textTertiary)
+
+            VStack(spacing: ACSpacing.sm) {
+                Text("Sin resultados")
+                    .font(ACTypography.headlineMedium)
+                    .foregroundColor(ACColors.textPrimary)
+
+                Text("No encontramos nada para \"\(searchTerm)\"")
+                    .font(ACTypography.bodyMedium)
+                    .foregroundColor(ACColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            if let onClearSearch = onClearSearch {
+                ACButton("Limpiar búsqueda", style: .tertiary) {
+                    onClearSearch()
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(ACSpacing.xl)
+    }
+}
+
+// MARK: - Offline State
+
+/// Estado sin conexión
+struct ACOfflineState: View {
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: ACSpacing.lg) {
+            ZStack {
+                Circle()
+                    .fill(ACColors.warningLight)
+                    .frame(width: 80, height: 80)
+
+                Image(systemName: "wifi.slash")
+                    .font(.system(size: 32))
+                    .foregroundColor(ACColors.warning)
+            }
+
+            VStack(spacing: ACSpacing.sm) {
+                Text("Sin conexión")
+                    .font(ACTypography.headlineMedium)
+                    .foregroundColor(ACColors.textPrimary)
+
+                Text("Parece que no tienes conexión a internet. Revisa tu conexión e inténtalo de nuevo.")
+                    .font(ACTypography.bodyMedium)
+                    .foregroundColor(ACColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, ACSpacing.xl)
+            }
+
+            ACButton("Reintentar", icon: "arrow.clockwise", style: .secondary) {
+                onRetry()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(ACSpacing.xl)
+    }
+}
+
+// MARK: - Loading Dots Animation
+
+struct ACLoadingDots: View {
+    @State private var animating = false
+
+    var body: some View {
+        HStack(spacing: ACSpacing.sm) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(ACColors.primary)
+                    .frame(width: 10, height: 10)
+                    .scaleEffect(animating ? 1.0 : 0.5)
+                    .animation(
+                        Animation.easeInOut(duration: 0.6)
+                            .repeatForever()
+                            .delay(Double(index) * 0.2),
+                        value: animating
+                    )
+            }
+        }
+        .onAppear { animating = true }
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Feedback") {
@@ -376,7 +521,7 @@ struct ACNotificationBadge: View {
                 action: {}
             )
 
-            Divider()
+            SwiftUI.Divider()
 
             // Error state
             ACErrorState(
@@ -385,7 +530,7 @@ struct ACNotificationBadge: View {
                 retryAction: {}
             )
 
-            Divider()
+            SwiftUI.Divider()
 
             // Toasts
             VStack(spacing: ACSpacing.md) {

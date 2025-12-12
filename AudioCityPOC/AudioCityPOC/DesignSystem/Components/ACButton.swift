@@ -157,7 +157,7 @@ struct ACButton: View {
 
     private var borderWidth: CGFloat {
         switch style {
-        case .secondary: return 1.5
+        case .secondary: return ACBorder.medium
         default: return 0
         }
     }

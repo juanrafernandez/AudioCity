@@ -14,79 +14,31 @@ struct ProfileView: View {
     @State private var showingPointsHistory = false
 
     var body: some View {
-        NavigationView {
-            List {
-                // Sección de puntos y nivel
-                pointsSection
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: ACSpacing.sectionSpacing) {
+                    // Sección de puntos y nivel
+                    pointsSection
 
-                // Estadísticas rápidas
-                statsSection
+                    // Estadísticas rápidas
+                    statsSection
 
-                // Información de la app
-                Section {
-                    HStack {
-                        Label("Versión", systemImage: "info.circle")
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Text("Información")
+                    // Información de la app
+                    infoSection
+
+                    // Permisos
+                    permissionsSection
+
+                    // Debug info
+                    debugSection
+
+                    Spacer(minLength: ACSpacing.mega)
                 }
-
-                // Permisos
-                Section {
-                    HStack {
-                        Label("Ubicación", systemImage: "location.fill")
-                        Spacer()
-                        Text(locationStatusText)
-                            .foregroundColor(locationStatusColor)
-                            .font(.caption)
-                    }
-
-                    if locationService.authorizationStatus != .authorizedAlways {
-                        Button(action: {
-                            locationService.requestLocationPermission()
-                        }) {
-                            HStack {
-                                Image(systemName: "location.circle.fill")
-                                Text("Solicitar permisos")
-                            }
-                        }
-                    }
-                } header: {
-                    Text("Permisos")
-                }
-
-                // Debug info
-                Section {
-                    if let userLocation = locationService.userLocation {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Ubicación actual")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text("Lat: \(String(format: "%.6f", userLocation.coordinate.latitude))")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                            Text("Lon: \(String(format: "%.6f", userLocation.coordinate.longitude))")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-
-                    HStack {
-                        Text("Tracking activo")
-                            .font(.caption)
-                        Spacer()
-                        Text(locationService.isTracking ? "Sí" : "No")
-                            .font(.caption)
-                            .foregroundColor(locationService.isTracking ? .green : .red)
-                    }
-                } header: {
-                    Text("Debug")
-                }
+                .padding(.top, ACSpacing.base)
             }
+            .background(ACColors.background)
             .navigationTitle("Perfil")
+            .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showingPointsHistory) {
                 PointsHistoryView()
             }
@@ -108,124 +60,235 @@ struct ProfileView: View {
 
     // MARK: - Points Section
     private var pointsSection: some View {
-        Section {
-            VStack(spacing: 16) {
-                // Nivel y puntos
-                HStack(alignment: .center, spacing: 16) {
-                    // Icono de nivel
-                    ZStack {
-                        Circle()
-                            .fill(levelColor.opacity(0.15))
-                            .frame(width: 70, height: 70)
+        VStack(spacing: ACSpacing.lg) {
+            // Nivel y puntos
+            HStack(alignment: .center, spacing: ACSpacing.lg) {
+                // Icono de nivel
+                ZStack {
+                    Circle()
+                        .fill(levelColor.opacity(0.15))
+                        .frame(width: 80, height: 80)
 
-                        Image(systemName: pointsService.stats.currentLevel.icon)
-                            .font(.system(size: 30))
-                            .foregroundColor(levelColor)
-                    }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(pointsService.stats.currentLevel.name)
-                            .font(.title2)
-                            .fontWeight(.bold)
-
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .foregroundColor(.yellow)
-                                .font(.subheadline)
-                            Text("\(pointsService.stats.totalPoints) puntos")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-
-                    Spacer()
+                    Image(systemName: pointsService.stats.currentLevel.icon)
+                        .font(.system(size: 36))
+                        .foregroundColor(levelColor)
                 }
 
-                // Barra de progreso al siguiente nivel
-                if let nextLevel = pointsService.stats.currentLevel.nextLevel {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Siguiente: \(nextLevel.name)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text("\(pointsService.stats.pointsToNextLevel) pts")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                        }
+                VStack(alignment: .leading, spacing: ACSpacing.xs) {
+                    Text(pointsService.stats.currentLevel.name)
+                        .font(ACTypography.headlineLarge)
+                        .foregroundColor(ACColors.textPrimary)
 
-                        GeometryReader { geometry in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.gray.opacity(0.2))
-                                    .frame(height: 8)
-
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(levelColor)
-                                    .frame(width: geometry.size.width * pointsService.stats.progressToNextLevel, height: 8)
-                            }
-                        }
-                        .frame(height: 8)
+                    HStack(spacing: ACSpacing.xs) {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(ACColors.gold)
+                            .font(.system(size: 14))
+                        Text("\(pointsService.stats.totalPoints) puntos")
+                            .font(ACTypography.bodyMedium)
+                            .foregroundColor(ACColors.textSecondary)
                     }
-                } else {
+                }
+
+                Spacer()
+            }
+
+            // Barra de progreso al siguiente nivel
+            if let nextLevel = pointsService.stats.currentLevel.nextLevel {
+                VStack(alignment: .leading, spacing: ACSpacing.sm) {
+                    HStack {
+                        Text("Siguiente: \(nextLevel.name)")
+                            .font(ACTypography.caption)
+                            .foregroundColor(ACColors.textSecondary)
+                        Spacer()
+                        Text("\(pointsService.stats.pointsToNextLevel) pts")
+                            .font(ACTypography.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(ACColors.textSecondary)
+                    }
+
+                    ACProgressBar(
+                        progress: pointsService.stats.progressToNextLevel,
+                        height: 8,
+                        color: levelColor
+                    )
+                }
+            } else {
+                HStack {
+                    Image(systemName: "crown.fill")
+                        .foregroundColor(ACColors.gold)
                     Text("¡Has alcanzado el nivel máximo!")
-                        .font(.caption)
-                        .foregroundColor(.green)
+                        .font(ACTypography.bodySmall)
+                        .foregroundColor(ACColors.success)
                         .fontWeight(.medium)
                 }
-
-                // Botón para ver historial
-                Button(action: { showingPointsHistory = true }) {
-                    HStack {
-                        Image(systemName: "clock.arrow.circlepath")
-                        Text("Ver historial de puntos")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .font(.subheadline)
-                }
             }
-            .padding(.vertical, 8)
+
+            // Botón para ver historial
+            Button(action: { showingPointsHistory = true }) {
+                HStack {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .foregroundColor(ACColors.primary)
+                    Text("Ver historial de puntos")
+                        .font(ACTypography.labelMedium)
+                        .foregroundColor(ACColors.textPrimary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12))
+                        .foregroundColor(ACColors.textTertiary)
+                }
+                .padding(ACSpacing.md)
+                .background(ACColors.background)
+                .cornerRadius(ACRadius.md)
+            }
+            .buttonStyle(PlainButtonStyle())
         }
+        .padding(ACSpacing.cardPadding)
+        .background(ACColors.surface)
+        .cornerRadius(ACRadius.lg)
+        .acShadow(ACShadow.sm)
+        .padding(.horizontal, ACSpacing.containerPadding)
     }
 
     // MARK: - Stats Section
     private var statsSection: some View {
-        Section {
-            HStack(spacing: 0) {
-                StatBox(
+        VStack(alignment: .leading, spacing: ACSpacing.md) {
+            Text("Estadísticas")
+                .font(ACTypography.headlineSmall)
+                .foregroundColor(ACColors.textPrimary)
+                .padding(.horizontal, ACSpacing.containerPadding)
+
+            HStack(spacing: ACSpacing.md) {
+                ACETACard(
                     value: "\(pointsService.stats.routesCreated)",
+                    unit: "",
                     label: "Creadas",
                     icon: "map.fill",
-                    color: .blue
+                    color: ACColors.info
                 )
 
-                Divider()
-                    .frame(height: 50)
-
-                StatBox(
+                ACETACard(
                     value: "\(pointsService.stats.routesCompleted)",
+                    unit: "",
                     label: "Completadas",
                     icon: "checkmark.circle.fill",
-                    color: .green
+                    color: ACColors.success
                 )
 
-                Divider()
-                    .frame(height: 50)
-
-                StatBox(
+                ACETACard(
                     value: "\(pointsService.stats.currentStreak)",
+                    unit: "",
                     label: "Racha",
                     icon: "flame.fill",
-                    color: .orange
+                    color: ACColors.warning
                 )
             }
-            .padding(.vertical, 4)
-        } header: {
-            Text("Estadísticas")
+            .padding(.horizontal, ACSpacing.containerPadding)
+        }
+    }
+
+    // MARK: - Info Section
+    private var infoSection: some View {
+        VStack(alignment: .leading, spacing: ACSpacing.md) {
+            Text("Información")
+                .font(ACTypography.headlineSmall)
+                .foregroundColor(ACColors.textPrimary)
+                .padding(.horizontal, ACSpacing.containerPadding)
+
+            HStack {
+                HStack(spacing: ACSpacing.sm) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(ACColors.info)
+                    Text("Versión")
+                        .font(ACTypography.bodyMedium)
+                        .foregroundColor(ACColors.textPrimary)
+                }
+                Spacer()
+                Text("1.0.0")
+                    .font(ACTypography.bodyMedium)
+                    .foregroundColor(ACColors.textSecondary)
+            }
+            .padding(ACSpacing.cardPadding)
+            .background(ACColors.surface)
+            .cornerRadius(ACRadius.lg)
+            .padding(.horizontal, ACSpacing.containerPadding)
+        }
+    }
+
+    // MARK: - Permissions Section
+    private var permissionsSection: some View {
+        VStack(alignment: .leading, spacing: ACSpacing.md) {
+            Text("Permisos")
+                .font(ACTypography.headlineSmall)
+                .foregroundColor(ACColors.textPrimary)
+                .padding(.horizontal, ACSpacing.containerPadding)
+
+            VStack(spacing: ACSpacing.sm) {
+                HStack {
+                    HStack(spacing: ACSpacing.sm) {
+                        Image(systemName: "location.fill")
+                            .foregroundColor(locationStatusColor)
+                        Text("Ubicación")
+                            .font(ACTypography.bodyMedium)
+                            .foregroundColor(ACColors.textPrimary)
+                    }
+                    Spacer()
+                    ACStatusBadge(
+                        text: locationStatusText,
+                        status: locationBadgeStatus
+                    )
+                }
+
+                if locationService.authorizationStatus != .authorizedAlways {
+                    ACButton("Solicitar permisos", icon: "location.circle.fill", style: .secondary, size: .small, isFullWidth: true) {
+                        locationService.requestLocationPermission()
+                    }
+                }
+            }
+            .padding(ACSpacing.cardPadding)
+            .background(ACColors.surface)
+            .cornerRadius(ACRadius.lg)
+            .padding(.horizontal, ACSpacing.containerPadding)
+        }
+    }
+
+    // MARK: - Debug Section
+    private var debugSection: some View {
+        VStack(alignment: .leading, spacing: ACSpacing.md) {
+            Text("Debug")
+                .font(ACTypography.headlineSmall)
+                .foregroundColor(ACColors.textPrimary)
+                .padding(.horizontal, ACSpacing.containerPadding)
+
+            VStack(alignment: .leading, spacing: ACSpacing.md) {
+                if let userLocation = locationService.userLocation {
+                    VStack(alignment: .leading, spacing: ACSpacing.xs) {
+                        Text("Ubicación actual")
+                            .font(ACTypography.caption)
+                            .foregroundColor(ACColors.textTertiary)
+                        Text("Lat: \(String(format: "%.6f", userLocation.coordinate.latitude))")
+                            .font(ACTypography.captionSmall)
+                            .foregroundColor(ACColors.textSecondary)
+                        Text("Lon: \(String(format: "%.6f", userLocation.coordinate.longitude))")
+                            .font(ACTypography.captionSmall)
+                            .foregroundColor(ACColors.textSecondary)
+                    }
+                }
+
+                HStack {
+                    Text("Tracking activo")
+                        .font(ACTypography.bodySmall)
+                        .foregroundColor(ACColors.textPrimary)
+                    Spacer()
+                    ACStatusBadge(
+                        text: locationService.isTracking ? "Sí" : "No",
+                        status: locationService.isTracking ? .active : .error
+                    )
+                }
+            }
+            .padding(ACSpacing.cardPadding)
+            .background(ACColors.surface)
+            .cornerRadius(ACRadius.lg)
+            .padding(.horizontal, ACSpacing.containerPadding)
         }
     }
 
@@ -233,11 +296,11 @@ struct ProfileView: View {
 
     private var levelColor: Color {
         switch pointsService.stats.currentLevel {
-        case .explorer: return .gray
-        case .traveler: return .blue
-        case .localGuide: return .green
-        case .expert: return .purple
-        case .master: return .orange
+        case .explorer: return ACColors.Levels.explorer
+        case .traveler: return ACColors.Levels.traveler
+        case .localGuide: return ACColors.Levels.localGuide
+        case .expert: return ACColors.Levels.expert
+        case .master: return ACColors.Levels.master
         }
     }
 
@@ -259,41 +322,31 @@ struct ProfileView: View {
     private var locationStatusColor: Color {
         switch locationService.authorizationStatus {
         case .authorizedAlways:
-            return .green
+            return ACColors.success
         case .authorizedWhenInUse:
-            return .orange
+            return ACColors.warning
         case .denied, .restricted:
-            return .red
+            return ACColors.error
         case .notDetermined:
-            return .gray
+            return ACColors.textTertiary
         @unknown default:
-            return .gray
+            return ACColors.textTertiary
         }
     }
-}
 
-// MARK: - Stat Box
-struct StatBox: View {
-    let value: String
-    let label: String
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(color)
-
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-
-            Text(label)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+    private var locationBadgeStatus: ACStatusBadge.BadgeStatus {
+        switch locationService.authorizationStatus {
+        case .authorizedAlways:
+            return .active
+        case .authorizedWhenInUse:
+            return .pending
+        case .denied, .restricted:
+            return .error
+        case .notDetermined:
+            return .inactive
+        @unknown default:
+            return .inactive
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -303,41 +356,50 @@ struct LevelUpNotification: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: ACSpacing.lg) {
             Spacer()
 
-            VStack(spacing: 12) {
-                Image(systemName: level.icon)
-                    .font(.system(size: 50))
-                    .foregroundColor(.yellow)
+            VStack(spacing: ACSpacing.lg) {
+                // Icono con efecto de brillo
+                ZStack {
+                    Circle()
+                        .fill(ACColors.gold.opacity(0.2))
+                        .frame(width: 120, height: 120)
 
-                Text("¡Nivel alcanzado!")
-                    .font(.headline)
+                    Circle()
+                        .fill(ACColors.gold.opacity(0.3))
+                        .frame(width: 100, height: 100)
 
-                Text(level.name)
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.yellow)
+                    Image(systemName: level.icon)
+                        .font(.system(size: 50))
+                        .foregroundColor(ACColors.gold)
+                }
 
-                Button("Continuar") {
+                VStack(spacing: ACSpacing.sm) {
+                    Text("¡Nivel alcanzado!")
+                        .font(ACTypography.headlineMedium)
+                        .foregroundColor(ACColors.textPrimary)
+
+                    Text(level.name)
+                        .font(ACTypography.displayMedium)
+                        .foregroundColor(ACColors.gold)
+                }
+
+                ACButton("Continuar", style: .primary, size: .large, isFullWidth: true) {
                     onDismiss()
                 }
-                .buttonStyle(.borderedProminent)
-                .padding(.top, 8)
             }
-            .padding(32)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(UIColor.systemBackground))
-                    .shadow(radius: 20)
-            )
-            .padding(40)
+            .padding(ACSpacing.xxl)
+            .background(ACColors.surface)
+            .cornerRadius(ACRadius.xxl)
+            .acShadow(ACShadow.xl)
+            .padding(.horizontal, ACSpacing.xl)
 
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.5))
-        .transition(.opacity)
+        .background(Color.black.opacity(0.6))
+        .transition(.opacity.combined(with: .scale))
     }
 }
 
@@ -355,6 +417,7 @@ struct PointsHistoryView: View {
                     historyList
                 }
             }
+            .background(ACColors.background)
             .navigationTitle("Historial de Puntos")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -362,70 +425,79 @@ struct PointsHistoryView: View {
                     Button("Cerrar") {
                         dismiss()
                     }
+                    .foregroundColor(ACColors.primary)
                 }
             }
         }
     }
 
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "star.circle")
-                .font(.system(size: 60))
-                .foregroundColor(.gray.opacity(0.5))
-
-            Text("Sin actividad")
-                .font(.title3)
-                .fontWeight(.medium)
-
-            Text("Completa rutas y crea contenido para ganar puntos")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-        }
+        ACEmptyState(
+            icon: "star.circle",
+            title: "Sin actividad",
+            description: "Completa rutas y crea contenido para ganar puntos"
+        )
     }
 
     private var historyList: some View {
-        List {
-            // Resumen
-            Section {
+        ScrollView {
+            VStack(spacing: ACSpacing.sectionSpacing) {
+                // Resumen
                 HStack {
-                    VStack(alignment: .leading) {
+                    VStack(alignment: .leading, spacing: ACSpacing.xs) {
                         Text("Total acumulado")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("\(pointsService.stats.totalPoints) puntos")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                            .font(ACTypography.caption)
+                            .foregroundColor(ACColors.textTertiary)
+                        HStack(spacing: ACSpacing.xs) {
+                            Image(systemName: "star.fill")
+                                .foregroundColor(ACColors.gold)
+                            Text("\(pointsService.stats.totalPoints) puntos")
+                                .font(ACTypography.headlineLarge)
+                                .foregroundColor(ACColors.textPrimary)
+                        }
                     }
 
                     Spacer()
 
-                    VStack(alignment: .trailing) {
+                    VStack(alignment: .trailing, spacing: ACSpacing.xs) {
                         Text("Nivel actual")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        HStack(spacing: 4) {
+                            .font(ACTypography.caption)
+                            .foregroundColor(ACColors.textTertiary)
+                        HStack(spacing: ACSpacing.xs) {
                             Image(systemName: pointsService.stats.currentLevel.icon)
                             Text(pointsService.stats.currentLevel.name)
                         }
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(ACTypography.titleMedium)
+                        .foregroundColor(ACColors.textPrimary)
                     }
                 }
-                .padding(.vertical, 4)
-            }
+                .padding(ACSpacing.cardPadding)
+                .background(ACColors.surface)
+                .cornerRadius(ACRadius.lg)
+                .padding(.horizontal, ACSpacing.containerPadding)
 
-            // Transacciones agrupadas por fecha
-            ForEach(pointsService.getTransactionsGroupedByDate(), id: \.date) { group in
-                Section(group.date) {
-                    ForEach(group.transactions) { transaction in
-                        TransactionRow(transaction: transaction)
+                // Transacciones agrupadas por fecha
+                ForEach(pointsService.getTransactionsGroupedByDate(), id: \.date) { group in
+                    VStack(alignment: .leading, spacing: ACSpacing.md) {
+                        Text(group.date)
+                            .font(ACTypography.headlineSmall)
+                            .foregroundColor(ACColors.textPrimary)
+                            .padding(.horizontal, ACSpacing.containerPadding)
+
+                        VStack(spacing: ACSpacing.sm) {
+                            ForEach(group.transactions) { transaction in
+                                TransactionRow(transaction: transaction)
+                            }
+                        }
+                        .padding(.horizontal, ACSpacing.containerPadding)
                     }
                 }
+
+                Spacer(minLength: ACSpacing.mega)
             }
+            .padding(.top, ACSpacing.base)
         }
-        .listStyle(.insetGrouped)
+        .background(ACColors.background)
     }
 }
 
@@ -434,32 +506,42 @@ struct TransactionRow: View {
     let transaction: PointsTransaction
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: transaction.action.icon)
-                .font(.title3)
-                .foregroundColor(.blue)
-                .frame(width: 32)
+        HStack(spacing: ACSpacing.md) {
+            // Icono
+            ZStack {
+                Circle()
+                    .fill(ACColors.infoLight)
+                    .frame(width: 40, height: 40)
 
-            VStack(alignment: .leading, spacing: 2) {
+                Image(systemName: transaction.action.icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(ACColors.info)
+            }
+
+            // Contenido
+            VStack(alignment: .leading, spacing: ACSpacing.xxs) {
                 Text(transaction.action.displayName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(ACTypography.titleSmall)
+                    .foregroundColor(ACColors.textPrimary)
 
                 if let routeName = transaction.routeName {
                     Text(routeName)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(ACTypography.caption)
+                        .foregroundColor(ACColors.textSecondary)
                         .lineLimit(1)
                 }
             }
 
             Spacer()
 
+            // Puntos
             Text("+\(transaction.points)")
-                .font(.headline)
-                .foregroundColor(.green)
+                .font(ACTypography.titleMedium)
+                .foregroundColor(ACColors.success)
         }
-        .padding(.vertical, 2)
+        .padding(ACSpacing.md)
+        .background(ACColors.surface)
+        .cornerRadius(ACRadius.md)
     }
 }
 

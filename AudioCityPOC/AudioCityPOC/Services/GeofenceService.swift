@@ -17,7 +17,7 @@ import Foundation
 import CoreLocation
 import Combine
 
-class GeofenceService: ObservableObject {
+class GeofenceService: ObservableObject, GeofenceServiceProtocol {
 
     // MARK: - Published Properties
     @Published var triggeredStop: Stop?

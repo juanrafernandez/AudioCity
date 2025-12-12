@@ -9,7 +9,7 @@ import CoreLocation
 struct Stop: Identifiable, Codable {
     let id: String
     let routeId: String
-    let order: Int
+    var order: Int  // var para permitir reordenación de ruta
     let name: String
     let description: String
     let latitude: Double

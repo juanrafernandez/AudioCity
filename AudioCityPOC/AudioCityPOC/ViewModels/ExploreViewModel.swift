@@ -7,9 +7,14 @@
 
 import Foundation
 import CoreLocation
+import MapKit
+import SwiftUI
 import Combine
 
 class ExploreViewModel: ObservableObject {
+
+    // MARK: - Singleton
+    static let shared = ExploreViewModel()
 
     // MARK: - Published Properties
     @Published var allStops: [Stop] = []
@@ -17,6 +22,17 @@ class ExploreViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var selectedStop: Stop?
+
+    // MARK: - Map State (persiste entre cambios de tab)
+    @Published var mapRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 40.3974, longitude: -3.6924),
+        span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+    )
+    @Published var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 40.3974, longitude: -3.6924),
+        span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+    ))
+    var hasCenteredOnUser = false
 
     // MARK: - Services
     let firebaseService = FirebaseService()
@@ -27,7 +43,7 @@ class ExploreViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initialization
-    init() {
+    private init() {
         setupObservers()
     }
 
@@ -119,5 +135,47 @@ class ExploreViewModel: ObservableObject {
             .sorted { $0.distance < $1.distance }
             .prefix(limit)
             .map { $0.stop }
+    }
+
+    /// Centrar mapa en ubicación del usuario
+    func centerOnUserLocation() {
+        guard let userLocation = locationService.userLocation else {
+            locationService.startTracking()
+            return
+        }
+
+        mapRegion = MKCoordinateRegion(
+            center: userLocation.coordinate,
+            span: mapRegion.span // Mantener el zoom actual
+        )
+        cameraPosition = .region(MKCoordinateRegion(
+            center: userLocation.coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+        ))
+    }
+
+    /// Centrar en usuario solo la primera vez
+    func centerOnUserIfNeeded() {
+        guard !hasCenteredOnUser else {
+            print("📍 ExploreViewModel: Ya centrado previamente")
+            return
+        }
+
+        guard let userLocation = locationService.userLocation else {
+            print("📍 ExploreViewModel: Ubicación no disponible aún")
+            return
+        }
+
+        print("📍 ExploreViewModel: Centrando en usuario \(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude)")
+
+        mapRegion = MKCoordinateRegion(
+            center: userLocation.coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+        )
+        cameraPosition = .region(MKCoordinateRegion(
+            center: userLocation.coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+        ))
+        hasCenteredOnUser = true
     }
 }

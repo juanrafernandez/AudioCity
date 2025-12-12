@@ -12,7 +12,7 @@ struct HistoryView: View {
     @State private var showingClearConfirmation = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Group {
                 if historyService.history.isEmpty {
                     emptyStateView
@@ -20,7 +20,9 @@ struct HistoryView: View {
                     historyListView
                 }
             }
+            .background(ACColors.background)
             .navigationTitle("Historial")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 if !historyService.history.isEmpty {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -32,6 +34,7 @@ struct HistoryView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
+                                .foregroundColor(ACColors.textSecondary)
                         }
                     }
                 }
@@ -49,81 +52,108 @@ struct HistoryView: View {
 
     // MARK: - Empty State
     private var emptyStateView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 70))
-                .foregroundColor(.gray.opacity(0.5))
+        VStack(spacing: ACSpacing.xl) {
+            Spacer()
 
-            VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(ACColors.primaryLight)
+                    .frame(width: 120, height: 120)
+
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 48))
+                    .foregroundColor(ACColors.primary)
+            }
+
+            VStack(spacing: ACSpacing.sm) {
                 Text("Sin historial")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(ACTypography.headlineMedium)
+                    .foregroundColor(ACColors.textPrimary)
 
                 Text("Aquí aparecerán las rutas que completes")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(ACTypography.bodyMedium)
+                    .foregroundColor(ACColors.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
+                    .padding(.horizontal, ACSpacing.xxl)
             }
+
+            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(ACColors.background)
     }
 
     // MARK: - History List
     private var historyListView: some View {
-        List {
-            // Stats Section
-            statsSection
+        ScrollView {
+            VStack(spacing: ACSpacing.sectionSpacing) {
+                // Stats Section
+                statsSection
+                    .padding(.horizontal, ACSpacing.containerPadding)
 
-            // History grouped by date
-            ForEach(historyService.getHistoryGroupedByDate(), id: \.date) { group in
-                Section(group.date) {
-                    ForEach(group.routes) { record in
-                        HistoryRecordRow(record: record)
-                    }
-                    .onDelete { offsets in
-                        deleteRecords(from: group.routes, at: offsets)
+                // History grouped by date
+                ForEach(historyService.getHistoryGroupedByDate(), id: \.date) { group in
+                    VStack(alignment: .leading, spacing: ACSpacing.md) {
+                        // Date header
+                        Text(group.date)
+                            .font(ACTypography.titleSmall)
+                            .foregroundColor(ACColors.textSecondary)
+                            .padding(.horizontal, ACSpacing.containerPadding)
+
+                        // Records
+                        VStack(spacing: ACSpacing.sm) {
+                            ForEach(group.routes) { record in
+                                HistoryRecordCard(record: record)
+                            }
+                        }
+                        .padding(.horizontal, ACSpacing.containerPadding)
                     }
                 }
+
+                Spacer(minLength: ACSpacing.mega)
             }
+            .padding(.top, ACSpacing.base)
         }
-        .listStyle(.insetGrouped)
+        .background(ACColors.background)
     }
 
     // MARK: - Stats Section
     private var statsSection: some View {
-        Section {
-            let stats = historyService.getStats()
+        let stats = historyService.getStats()
 
-            HStack(spacing: 0) {
-                StatItem(
-                    value: "\(stats.totalRoutes)",
-                    label: "Rutas",
-                    icon: "map"
-                )
-                Divider()
-                    .frame(height: 40)
-                StatItem(
-                    value: stats.totalDistanceFormatted,
-                    label: "Recorrido",
-                    icon: "figure.walk"
-                )
-                Divider()
-                    .frame(height: 40)
-                StatItem(
-                    value: stats.totalDurationFormatted,
-                    label: "Tiempo",
-                    icon: "clock"
-                )
-                Divider()
-                    .frame(height: 40)
-                StatItem(
-                    value: "\(stats.completionRate)%",
-                    label: "Completado",
-                    icon: "checkmark.circle"
-                )
-            }
-            .padding(.vertical, 8)
+        return HStack(spacing: 0) {
+            HistoryStatItem(
+                value: "\(stats.totalRoutes)",
+                label: "Rutas",
+                icon: "map.fill",
+                color: ACColors.primary
+            )
+
+            HistoryStatItem(
+                value: stats.totalDistanceFormatted,
+                label: "Recorrido",
+                icon: "figure.walk",
+                color: ACColors.secondary
+            )
+
+            HistoryStatItem(
+                value: stats.totalDurationFormatted,
+                label: "Tiempo",
+                icon: "clock.fill",
+                color: ACColors.info
+            )
+
+            HistoryStatItem(
+                value: "\(stats.completionRate)%",
+                label: "Completado",
+                icon: "checkmark.circle.fill",
+                color: ACColors.success
+            )
         }
+        .padding(ACSpacing.md)
+        .background(ACColors.surface)
+        .cornerRadius(ACRadius.lg)
+        .acShadow(ACShadow.sm)
     }
 
     private func deleteRecords(from routes: [RouteHistory], at offsets: IndexSet) {
@@ -133,86 +163,91 @@ struct HistoryView: View {
     }
 }
 
-// MARK: - Stat Item
-struct StatItem: View {
+// MARK: - History Stat Item
+struct HistoryStatItem: View {
     let value: String
     let label: String
     let icon: String
+    let color: Color
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: ACSpacing.xs) {
             Image(systemName: icon)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(.system(size: 16))
+                .foregroundColor(color)
 
             Text(value)
-                .font(.headline)
+                .font(ACTypography.titleMedium)
                 .fontWeight(.bold)
+                .foregroundColor(ACColors.textPrimary)
 
             Text(label)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                .font(ACTypography.captionSmall)
+                .foregroundColor(ACColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
 }
 
-// MARK: - History Record Row
-struct HistoryRecordRow: View {
+// MARK: - History Record Card
+struct HistoryRecordCard: View {
     let record: RouteHistory
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: ACSpacing.md) {
             // Progress Circle
             ZStack {
                 Circle()
-                    .stroke(Color.gray.opacity(0.2), lineWidth: 4)
-                    .frame(width: 50, height: 50)
+                    .stroke(ACColors.border, lineWidth: 4)
+                    .frame(width: 56, height: 56)
 
                 Circle()
                     .trim(from: 0, to: CGFloat(record.completionPercentage) / 100)
                     .stroke(
-                        record.isCompleted ? Color.green : Color.orange,
+                        record.isCompleted ? ACColors.success : ACColors.warning,
                         style: StrokeStyle(lineWidth: 4, lineCap: .round)
                     )
-                    .frame(width: 50, height: 50)
+                    .frame(width: 56, height: 56)
                     .rotationEffect(.degrees(-90))
 
                 Text("\(record.completionPercentage)%")
-                    .font(.caption2)
+                    .font(ACTypography.labelSmall)
                     .fontWeight(.bold)
+                    .foregroundColor(record.isCompleted ? ACColors.success : ACColors.warning)
             }
 
             // Route Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(record.routeName)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: ACSpacing.xs) {
+                HStack {
+                    Text(record.routeName)
+                        .font(ACTypography.titleSmall)
+                        .foregroundColor(ACColors.textPrimary)
+                        .lineLimit(1)
+
+                    if record.isCompleted {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(ACColors.success)
+                            .font(.system(size: 14))
+                    }
+                }
 
                 Text(record.routeCity)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(ACTypography.caption)
+                    .foregroundColor(ACColors.textSecondary)
 
-                HStack(spacing: 12) {
-                    Label(record.timeFormatted, systemImage: "clock")
-                    Label(record.durationFormatted, systemImage: "timer")
-                    Label("\(record.stopsVisited)/\(record.totalStops)", systemImage: "mappin")
+                HStack(spacing: ACSpacing.md) {
+                    ACMetaBadge(icon: "clock", text: record.timeFormatted)
+                    ACMetaBadge(icon: "timer", text: record.durationFormatted)
+                    ACMetaBadge(icon: "mappin", text: "\(record.stopsVisited)/\(record.totalStops)")
                 }
-                .font(.caption2)
-                .foregroundColor(.secondary)
             }
 
             Spacer()
-
-            // Status indicator
-            if record.isCompleted {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                    .font(.title3)
-            }
         }
-        .padding(.vertical, 4)
+        .padding(ACSpacing.cardPadding)
+        .background(ACColors.surface)
+        .cornerRadius(ACRadius.lg)
+        .acShadow(ACShadow.sm)
     }
 }
 

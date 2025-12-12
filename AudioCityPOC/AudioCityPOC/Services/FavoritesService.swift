@@ -13,12 +13,12 @@ class FavoritesService: ObservableObject {
     // MARK: - Published Properties
     @Published var favoriteRouteIds: Set<String> = []
 
-    // MARK: - Private Properties
-    private let userDefaults = UserDefaults.standard
-    private let favoritesKey = "favoriteRouteIds"
+    // MARK: - Dependencies
+    private let repository: FavoritesRepositoryProtocol
 
     // MARK: - Initialization
-    init() {
+    init(repository: FavoritesRepositoryProtocol = FavoritesRepository()) {
+        self.repository = repository
         loadFavorites()
     }
 
@@ -65,16 +65,20 @@ class FavoritesService: ObservableObject {
     // MARK: - Private Methods
 
     private func loadFavorites() {
-        if let data = userDefaults.data(forKey: favoritesKey),
-           let ids = try? JSONDecoder().decode(Set<String>.self, from: data) {
-            favoriteRouteIds = ids
-            print("⭐ FavoritesService: \(ids.count) favoritos cargados")
+        do {
+            favoriteRouteIds = try repository.loadFavorites()
+            print("⭐ FavoritesService: \(favoriteRouteIds.count) favoritos cargados")
+        } catch {
+            print("❌ FavoritesService: Error cargando favoritos - \(error.localizedDescription)")
+            favoriteRouteIds = []
         }
     }
 
     private func saveFavorites() {
-        if let data = try? JSONEncoder().encode(favoriteRouteIds) {
-            userDefaults.set(data, forKey: favoritesKey)
+        do {
+            try repository.saveFavorites(favoriteRouteIds)
+        } catch {
+            print("❌ FavoritesService: Error guardando favoritos - \(error.localizedDescription)")
         }
     }
 }

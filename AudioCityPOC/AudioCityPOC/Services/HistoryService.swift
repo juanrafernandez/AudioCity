@@ -17,12 +17,12 @@ class HistoryService: ObservableObject {
     @Published var history: [RouteHistory] = []
     @Published var isLoading = false
 
-    // MARK: - Private Properties
-    private let userDefaults = UserDefaults.standard
-    private let historyKey = "routeHistory"
+    // MARK: - Dependencies
+    private let repository: HistoryRepositoryProtocol
 
     // MARK: - Initialization
-    init() {
+    init(repository: HistoryRepositoryProtocol = HistoryRepository()) {
+        self.repository = repository
         loadHistory()
     }
 
@@ -80,8 +80,8 @@ class HistoryService: ObservableObject {
 
         saveHistory()
 
-        // Otorgar puntos por completar la ruta
-        PointsService.shared.awardPointsForCompletingRoute(
+        // Publicar evento de ruta completada (PointsService lo escuchará)
+        EventBus.shared.publishRouteCompleted(
             routeId: history[index].routeId,
             routeName: history[index].routeName
         )
@@ -151,16 +151,8 @@ class HistoryService: ObservableObject {
     // MARK: - Private Methods
 
     private func loadHistory() {
-        guard let data = userDefaults.data(forKey: historyKey) else {
-            history = []
-            return
-        }
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
         do {
-            history = try decoder.decode([RouteHistory].self, from: data)
+            history = try repository.loadHistory()
             print("✅ HistoryService: \(history.count) registros cargados")
         } catch {
             print("❌ HistoryService: Error cargando historial - \(error.localizedDescription)")
@@ -169,12 +161,8 @@ class HistoryService: ObservableObject {
     }
 
     private func saveHistory() {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-
         do {
-            let data = try encoder.encode(history)
-            userDefaults.set(data, forKey: historyKey)
+            try repository.saveHistory(history)
         } catch {
             print("❌ HistoryService: Error guardando historial - \(error.localizedDescription)")
         }

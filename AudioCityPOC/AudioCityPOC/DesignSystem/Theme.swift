@@ -374,6 +374,56 @@ struct ACIconSize {
     static let hero: CGFloat = 64
 }
 
+// MARK: - Border Widths
+
+/// Anchos de borde estandarizados
+struct ACBorder {
+    /// 1pt - Bordes sutiles, divisores
+    static let thin: CGFloat = 1.0
+    /// 1.5pt - Bordes de botones secundarios
+    static let medium: CGFloat = 1.5
+    /// 2pt - Bordes de focus, elementos destacados
+    static let thick: CGFloat = 2.0
+    /// 3pt - Bordes muy destacados
+    static let heavy: CGFloat = 3.0
+}
+
+// MARK: - Opacities
+
+/// Opacidades estandarizadas para estados y overlays
+struct ACOpacity {
+    /// 5% - Hover states sutiles
+    static let hover: Double = 0.05
+    /// 10% - Backgrounds sutiles
+    static let subtle: Double = 0.1
+    /// 20% - Overlays ligeros
+    static let light: Double = 0.2
+    /// 40% - Overlays medios (dimmed backgrounds)
+    static let medium: Double = 0.4
+    /// 50% - Estados disabled
+    static let disabled: Double = 0.5
+    /// 60% - Overlays pronunciados
+    static let heavy: Double = 0.6
+    /// 80% - Overlays casi opacos
+    static let overlay: Double = 0.8
+}
+
+// MARK: - Shadow Elevation Presets
+
+/// Presets de elevación para casos de uso comunes
+struct ACShadowElevation {
+    /// Sombra para cards en reposo
+    static let card = ACShadow.sm
+    /// Sombra para cards en hover/pressed
+    static let cardHover = ACShadow.md
+    /// Sombra para botones flotantes (FAB)
+    static let fab = ACShadow.lg
+    /// Sombra para modals y sheets
+    static let modal = ACShadow.xl
+    /// Sombra para elementos de navegación
+    static let navigation = ACShadow.md
+}
+
 // MARK: - Color Extension
 
 extension Color {
@@ -429,5 +479,146 @@ extension View {
             .background(ACColors.surfaceElevated)
             .cornerRadius(ACRadius.lg)
             .acShadow(ACShadow.md)
+    }
+
+    /// Padding de contenedor estándar
+    func acContainerPadding() -> some View {
+        self.padding(.horizontal, ACSpacing.containerPadding)
+    }
+
+    /// Padding de sección
+    func acSectionPadding() -> some View {
+        self.padding(.vertical, ACSpacing.sectionSpacing)
+    }
+
+    /// Borde redondeado
+    func acBorder(_ color: Color = ACColors.border, radius: CGFloat = ACRadius.md) -> some View {
+        self
+            .overlay(
+                RoundedRectangle(cornerRadius: radius)
+                    .stroke(color, lineWidth: ACBorder.thin)
+            )
+    }
+
+    /// Fondo con color primario suave
+    func acPrimarySurface() -> some View {
+        self
+            .background(ACColors.primarySurface)
+            .cornerRadius(ACRadius.md)
+    }
+
+    /// Estilo de texto primario
+    func acTextPrimary() -> some View {
+        self.foregroundColor(ACColors.textPrimary)
+    }
+
+    /// Estilo de texto secundario
+    func acTextSecondary() -> some View {
+        self.foregroundColor(ACColors.textSecondary)
+    }
+
+    /// Estilo de texto terciario
+    func acTextTertiary() -> some View {
+        self.foregroundColor(ACColors.textTertiary)
+    }
+}
+
+// MARK: - Layout Helpers
+
+/// Contenedor con ancho máximo (útil para iPad)
+struct ACMaxWidthContainer<Content: View>: View {
+    let maxWidth: CGFloat
+    let content: Content
+
+    init(maxWidth: CGFloat = 600, @ViewBuilder content: () -> Content) {
+        self.maxWidth = maxWidth
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .frame(maxWidth: maxWidth)
+            .frame(maxWidth: .infinity)
+    }
+}
+
+/// Spacer vertical estandarizado
+struct ACVerticalSpacer: View {
+    let size: SpacerSize
+
+    enum SpacerSize {
+        case small   // 8pt
+        case medium  // 16pt
+        case large   // 24pt
+        case section // 32pt
+
+        var value: CGFloat {
+            switch self {
+            case .small: return ACSpacing.sm
+            case .medium: return ACSpacing.base
+            case .large: return ACSpacing.xl
+            case .section: return ACSpacing.xxl
+            }
+        }
+    }
+
+    init(_ size: SpacerSize = .medium) {
+        self.size = size
+    }
+
+    var body: some View {
+        Spacer()
+            .frame(height: size.value)
+    }
+}
+
+/// Divisor horizontal con padding
+struct ACDivider: View {
+    let color: Color
+    let insets: EdgeInsets
+
+    init(
+        color: Color = ACColors.divider,
+        horizontalInset: CGFloat = 0,
+        verticalPadding: CGFloat = 0
+    ) {
+        self.color = color
+        self.insets = EdgeInsets(
+            top: verticalPadding,
+            leading: horizontalInset,
+            bottom: verticalPadding,
+            trailing: horizontalInset
+        )
+    }
+
+    var body: some View {
+        Rectangle()
+            .fill(color)
+            .frame(height: 1)
+            .padding(insets)
+    }
+}
+
+// MARK: - Conditional Modifier
+
+extension View {
+    /// Aplica un modificador condicionalmente
+    @ViewBuilder
+    func `if`<Transform: View>(_ condition: Bool, transform: (Self) -> Transform) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
+    }
+
+    /// Aplica un modificador si el valor opcional existe
+    @ViewBuilder
+    func ifLet<T, Transform: View>(_ value: T?, transform: (Self, T) -> Transform) -> some View {
+        if let value = value {
+            transform(self, value)
+        } else {
+            self
+        }
     }
 }
