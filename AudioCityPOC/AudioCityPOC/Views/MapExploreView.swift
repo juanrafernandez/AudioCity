@@ -21,8 +21,6 @@ struct MapExploreView: View {
     @State private var nextStop: Stop? = nil
     @State private var lastRouteUpdateTime: Date = .distantPast
 
-    // Camera position local para el mapa de ruta activa
-    @State private var activeRouteCameraPosition: MapCameraPosition = .automatic
 
     // Computed: Si hay ruta activa
     private var hasActiveRoute: Bool {
@@ -109,24 +107,34 @@ struct MapExploreView: View {
             if viewModel.allStops.isEmpty {
                 viewModel.loadAllStops()
             }
-            viewModel.locationService.requestLocationPermission()
-            viewModel.locationService.startTracking()
-            updateNextStop()
 
-            // Intentar centrar si ya tenemos ubicación
-            viewModel.centerOnUserIfNeeded()
+            // Solicitar permisos y ubicación única (sin tracking continuo)
+            viewModel.locationService.requestLocationPermission()
+            viewModel.requestCurrentLocation()
+            updateNextStop()
         }
         .onReceive(viewModel.locationService.$userLocation) { location in
-            // Centrar en la ubicación del usuario solo la primera vez
-            viewModel.centerOnUserIfNeeded()
-
-            // Actualizar ruta activa cuando cambia la ubicación
+            // Solo actualizar ruta activa cuando cambia la ubicación (si hay tracking activo)
             if hasActiveRoute {
                 handleActiveRouteLocationUpdate(location)
             }
         }
         .onChange(of: activeRouteViewModel?.stops.map { $0.hasBeenVisited } ?? []) { _, _ in
             updateNextStop()
+        }
+        .onChange(of: activeRouteViewModel?.isRouteActive) { _, isActive in
+            if isActive == true {
+                print("🗺️ Ruta activada, esperando polylines...")
+            }
+        }
+        .onChange(of: activeRouteViewModel?.routePolylines.count ?? 0) { _, count in
+            if count > 0 && hasActiveRoute {
+                print("🗺️ Polylines listos (\(count)), centrando mapa...")
+                // Pequeño delay para asegurar que el mapa está renderizado
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    centerMapOnRoute()
+                }
+            }
         }
     }
 
@@ -136,6 +144,7 @@ struct MapExploreView: View {
         if hasActiveRoute {
             // Mapa con ruta trazada (polylines) cuando hay ruta activa
             activeRouteMapView
+                .id("activeRoute-\(activeRouteViewModel?.currentRoute?.id ?? "")-\(activeRouteViewModel?.routePolylines.count ?? 0)")
         } else {
             // Mapa normal de exploración
             exploreMapView
@@ -166,7 +175,7 @@ struct MapExploreView: View {
 
     // MARK: - Active Route Map (con polylines)
     private var activeRouteMapView: some View {
-        Map(position: $activeRouteCameraPosition) {
+        Map(position: $viewModel.activeRouteCameraPosition) {
             // Ubicación del usuario
             UserAnnotation()
 
@@ -195,7 +204,7 @@ struct MapExploreView: View {
                     )
                     .onTapGesture {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            activeRouteCameraPosition = .region(MKCoordinateRegion(
+                            viewModel.activeRouteCameraPosition = .region(MKCoordinateRegion(
                                 center: stop.coordinate,
                                 span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
                             ))
@@ -214,7 +223,51 @@ struct MapExploreView: View {
             if let vm = activeRouteViewModel {
                 print("🗺️ ActiveRouteMap: \(vm.routePolylines.count) polylines, \(activeRouteStops.count) paradas")
             }
+
+            // Centrar el mapa en la ruta cuando aparece
+            centerMapOnRoute()
         }
+    }
+
+    /// Centra el mapa para mostrar toda la ruta activa
+    private func centerMapOnRoute() {
+        guard !activeRouteStops.isEmpty else { return }
+
+        // Calcular el bounding box de todas las paradas
+        let coordinates = activeRouteStops.map { $0.coordinate }
+
+        // Incluir ubicación del usuario si está disponible
+        var allCoordinates = coordinates
+        if let userLocation = viewModel.locationService.userLocation {
+            allCoordinates.append(userLocation.coordinate)
+        }
+
+        guard !allCoordinates.isEmpty else { return }
+
+        let minLat = allCoordinates.map { $0.latitude }.min() ?? 0
+        let maxLat = allCoordinates.map { $0.latitude }.max() ?? 0
+        let minLon = allCoordinates.map { $0.longitude }.min() ?? 0
+        let maxLon = allCoordinates.map { $0.longitude }.max() ?? 0
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLon + maxLon) / 2
+        )
+
+        // Añadir padding al span
+        let latDelta = (maxLat - minLat) * 1.3
+        let lonDelta = (maxLon - minLon) * 1.3
+
+        // Asegurar un zoom mínimo
+        let span = MKCoordinateSpan(
+            latitudeDelta: max(latDelta, 0.005),
+            longitudeDelta: max(lonDelta, 0.005)
+        )
+
+        viewModel.activeRouteCameraPosition = .region(MKCoordinateRegion(center: center, span: span))
+        viewModel.hasPositionedActiveRoute = true
+
+        print("🗺️ Mapa centrado en ruta: \(center.latitude), \(center.longitude)")
     }
 
     // MARK: - Active Route Overlay
@@ -383,7 +436,7 @@ struct MapExploreView: View {
             viewModel.centerOnUserLocation()
             // También centrar el mapa de ruta activa
             if let userLocation = viewModel.locationService.userLocation {
-                activeRouteCameraPosition = .region(MKCoordinateRegion(
+                viewModel.activeRouteCameraPosition = .region(MKCoordinateRegion(
                     center: userLocation.coordinate,
                     span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
                 ))

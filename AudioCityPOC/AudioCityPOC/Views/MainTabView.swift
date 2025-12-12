@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import MapKit
 import CoreLocation
 import Combine
 
@@ -137,14 +138,16 @@ struct MainTabView: View {
                 .receive(on: DispatchQueue.main)
                 .sink { _ in
                     print("🎯 MainTabView: isRouteReady cambió a true")
-                    // Ruta calculada, cerrar sheet y navegar
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                        showOptimizeSheet = false
-                        isCalculatingRoute = false
-                    }
-                    // Navegar a explorar
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        withAnimation(ACAnimation.spring) {
+
+                    // Centrar el mapa en la ruta ANTES de cerrar
+                    centerExploreMapOnActiveRoute()
+
+                    // Pequeña pausa para que se vea que terminó de calcular
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        // Cerrar sheet y navegar
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            showOptimizeSheet = false
+                            isCalculatingRoute = false
                             selectedTab = 0
                         }
                     }
@@ -154,6 +157,46 @@ struct MainTabView: View {
             // Detener audio de preview cuando se cambia de tab
             AudioPreviewService.shared.stop()
         }
+    }
+
+    /// Centra el mapa de exploración en la ruta activa
+    private func centerExploreMapOnActiveRoute() {
+        let stops = activeRouteViewModel.stops
+        guard !stops.isEmpty else { return }
+
+        let coordinates = stops.map { $0.coordinate }
+
+        // Incluir ubicación del usuario si está disponible
+        var allCoordinates = coordinates
+        if let userLocation = ExploreViewModel.shared.locationService.userLocation {
+            allCoordinates.append(userLocation.coordinate)
+        }
+
+        guard !allCoordinates.isEmpty else { return }
+
+        let minLat = allCoordinates.map { $0.latitude }.min() ?? 0
+        let maxLat = allCoordinates.map { $0.latitude }.max() ?? 0
+        let minLon = allCoordinates.map { $0.longitude }.min() ?? 0
+        let maxLon = allCoordinates.map { $0.longitude }.max() ?? 0
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLon + maxLon) / 2
+        )
+
+        let latDelta = (maxLat - minLat) * 1.3
+        let lonDelta = (maxLon - minLon) * 1.3
+
+        let span = MKCoordinateSpan(
+            latitudeDelta: max(latDelta, 0.005),
+            longitudeDelta: max(lonDelta, 0.005)
+        )
+
+        let region = MKCoordinateRegion(center: center, span: span)
+        ExploreViewModel.shared.activeRouteCameraPosition = .region(region)
+        ExploreViewModel.shared.hasPositionedActiveRoute = true
+
+        print("🗺️ MainTabView: Mapa centrado en ruta activa")
     }
 }
 
@@ -171,7 +214,11 @@ struct OptimizeRouteSheetGlobal: View {
                 // Background dimmed
                 Color.black.opacity(ACOpacity.medium)
                     .ignoresSafeArea(.all)
-                    .onTapGesture { onDismiss() }
+                    .onTapGesture {
+                        if !isCalculating {
+                            onDismiss()
+                        }
+                    }
 
                 // Sheet posicionado desde el fondo
                 VStack(spacing: 0) {
@@ -184,79 +231,141 @@ struct OptimizeRouteSheetGlobal: View {
                             .frame(width: 36, height: 5)
                             .padding(.top, ACSpacing.sm)
 
-                        // Icon
-                        ZStack {
-                            Circle()
-                                .fill(ACColors.primaryLight)
-                                .frame(width: 64, height: 64)
-
-                            if isCalculating {
-                                ProgressView()
-                                    .scaleEffect(1.2)
-                                    .tint(ACColors.primary)
-                            } else {
-                                Image(systemName: "arrow.triangle.swap")
-                                    .font(.system(size: 28))
-                                    .foregroundColor(ACColors.primary)
-                            }
-                        }
-
-                        // Title
-                        Text(isCalculating ? "Calculando ruta..." : "Optimizar recorrido")
-                            .font(ACTypography.headlineMedium)
-                            .foregroundColor(ACColors.textPrimary)
-
-                        // Message
-                        if !isCalculating, let info = nearestStopInfo {
-                            Text("Estás más cerca de **\"\(info.name)\"** (parada \(info.originalOrder), a \(info.distance)m).\n\n¿Quieres reordenar la ruta para empezar por el punto más cercano?")
-                                .font(ACTypography.bodyMedium)
-                                .foregroundColor(ACColors.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, ACSpacing.lg)
-                        } else if isCalculating {
-                            Text("Preparando tu ruta personalizada...")
-                                .font(ACTypography.bodyMedium)
-                                .foregroundColor(ACColors.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, ACSpacing.lg)
-                        }
-
-                        // Buttons (solo si no está calculando)
-                        if !isCalculating {
-                            VStack(spacing: ACSpacing.sm) {
-                                // Optimize button - Coral background
-                                Button(action: onOptimize) {
-                                    HStack(spacing: ACSpacing.sm) {
-                                        Image(systemName: "sparkles")
-                                        Text("Optimizar ruta")
-                                            .fontWeight(.semibold)
-                                    }
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, ACSpacing.md)
-                                    .background(ACColors.primary)
-                                    .cornerRadius(ACRadius.md)
-                                }
-
-                                // Keep original button
-                                Button(action: onKeepOriginal) {
-                                    Text("Seguir orden original")
-                                        .font(ACTypography.labelMedium)
-                                        .foregroundColor(ACColors.textSecondary)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, ACSpacing.md)
-                                }
-                            }
-                            .padding(.horizontal, ACSpacing.containerPadding)
+                        if isCalculating {
+                            // Estado: Calculando
+                            CalculatingStateView()
+                                .transition(.opacity)
+                        } else {
+                            // Estado: Selección
+                            SelectionStateView(
+                                nearestStopInfo: nearestStopInfo,
+                                onOptimize: onOptimize,
+                                onKeepOriginal: onKeepOriginal
+                            )
+                            .transition(.opacity)
                         }
                     }
                     .padding(.top, ACSpacing.md)
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 16) // Safe area + extra
+                    .padding(.bottom, geometry.safeAreaInsets.bottom + 16)
                     .frame(maxWidth: .infinity)
                     .background(ACColors.surface)
                     .cornerRadius(ACRadius.xxl, corners: [.topLeft, .topRight])
+                    .animation(.easeInOut(duration: 0.3), value: isCalculating)
                 }
                 .ignoresSafeArea(.container, edges: .bottom)
+            }
+        }
+    }
+}
+
+// MARK: - Selection State View
+private struct SelectionStateView: View {
+    let nearestStopInfo: (name: String, distance: Int, originalOrder: Int)?
+    let onOptimize: () -> Void
+    let onKeepOriginal: () -> Void
+
+    var body: some View {
+        VStack(spacing: ACSpacing.lg) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(ACColors.primaryLight)
+                    .frame(width: 64, height: 64)
+
+                Image(systemName: "arrow.triangle.swap")
+                    .font(.system(size: 28))
+                    .foregroundColor(ACColors.primary)
+            }
+
+            // Title
+            Text("Optimizar recorrido")
+                .font(ACTypography.headlineMedium)
+                .foregroundColor(ACColors.textPrimary)
+
+            // Message
+            if let info = nearestStopInfo {
+                Text("Estás más cerca de **\"\(info.name)\"** (parada \(info.originalOrder), a \(info.distance)m).\n\n¿Quieres reordenar la ruta para empezar por el punto más cercano?")
+                    .font(ACTypography.bodyMedium)
+                    .foregroundColor(ACColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, ACSpacing.lg)
+            }
+
+            // Buttons
+            VStack(spacing: ACSpacing.sm) {
+                Button(action: onOptimize) {
+                    HStack(spacing: ACSpacing.sm) {
+                        Image(systemName: "sparkles")
+                        Text("Optimizar ruta")
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, ACSpacing.md)
+                    .background(ACColors.primary)
+                    .cornerRadius(ACRadius.md)
+                }
+
+                Button(action: onKeepOriginal) {
+                    Text("Seguir orden original")
+                        .font(ACTypography.labelMedium)
+                        .foregroundColor(ACColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, ACSpacing.md)
+                }
+            }
+            .padding(.horizontal, ACSpacing.containerPadding)
+        }
+    }
+}
+
+// MARK: - Calculating State View
+private struct CalculatingStateView: View {
+    @State private var rotation: Double = 0
+    @State private var pulse: Bool = false
+
+    var body: some View {
+        VStack(spacing: ACSpacing.lg) {
+            // Animated icon
+            ZStack {
+                // Pulsing background
+                Circle()
+                    .fill(ACColors.primaryLight)
+                    .frame(width: 64, height: 64)
+                    .scaleEffect(pulse ? 1.2 : 1.0)
+                    .opacity(pulse ? 0.5 : 1.0)
+
+                // Rotating icon
+                Image(systemName: "location.circle")
+                    .font(.system(size: 30, weight: .medium))
+                    .foregroundColor(ACColors.primary)
+                    .rotationEffect(.degrees(rotation))
+            }
+
+            // Title
+            Text("Calculando ruta...")
+                .font(ACTypography.headlineMedium)
+                .foregroundColor(ACColors.textPrimary)
+
+            // Subtitle
+            Text("Preparando tu ruta personalizada")
+                .font(ACTypography.bodyMedium)
+                .foregroundColor(ACColors.textSecondary)
+                .multilineTextAlignment(.center)
+
+            // Progress indicator
+            ProgressView()
+                .tint(ACColors.primary)
+                .scaleEffect(1.2)
+                .padding(.top, ACSpacing.sm)
+        }
+        .padding(.bottom, ACSpacing.xl)
+        .onAppear {
+            withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
+                rotation = 360
+            }
+            withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+                pulse = true
             }
         }
     }

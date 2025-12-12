@@ -32,7 +32,12 @@ class ExploreViewModel: ObservableObject {
         center: CLLocationCoordinate2D(latitude: 40.3974, longitude: -3.6924),
         span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
     ))
+    @Published var activeRouteCameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 40.4168, longitude: -3.7038),
+        span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+    ))
     var hasCenteredOnUser = false
+    var hasPositionedActiveRoute = false
 
     // MARK: - Services
     let firebaseService = FirebaseService()
@@ -137,21 +142,36 @@ class ExploreViewModel: ObservableObject {
             .map { $0.stop }
     }
 
-    /// Centrar mapa en ubicación del usuario
+    /// Centrar mapa en ubicación del usuario (solicita ubicación única)
     func centerOnUserLocation() {
-        guard let userLocation = locationService.userLocation else {
-            locationService.startTracking()
+        // Si ya tenemos ubicación, usar esa
+        if let userLocation = locationService.userLocation {
+            mapRegion = MKCoordinateRegion(
+                center: userLocation.coordinate,
+                span: mapRegion.span // Mantener el zoom actual
+            )
+            cameraPosition = .region(MKCoordinateRegion(
+                center: userLocation.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+            ))
             return
         }
 
-        mapRegion = MKCoordinateRegion(
-            center: userLocation.coordinate,
-            span: mapRegion.span // Mantener el zoom actual
-        )
-        cameraPosition = .region(MKCoordinateRegion(
-            center: userLocation.coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-        ))
+        // Si no, solicitar ubicación única
+        locationService.requestSingleLocation { [weak self] location in
+            guard let self = self, let location = location else { return }
+
+            DispatchQueue.main.async {
+                self.mapRegion = MKCoordinateRegion(
+                    center: location.coordinate,
+                    span: self.mapRegion.span
+                )
+                self.cameraPosition = .region(MKCoordinateRegion(
+                    center: location.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+                ))
+            }
+        }
     }
 
     /// Centrar en usuario solo la primera vez
@@ -177,5 +197,34 @@ class ExploreViewModel: ObservableObject {
             span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
         ))
         hasCenteredOnUser = true
+    }
+
+    /// Solicitar ubicación actual una sola vez (sin tracking continuo)
+    func requestCurrentLocation() {
+        guard !hasCenteredOnUser else {
+            print("📍 ExploreViewModel: Ya centrado, no solicitar de nuevo")
+            return
+        }
+
+        print("📍 ExploreViewModel: Solicitando ubicación única...")
+        locationService.requestSingleLocation { [weak self] location in
+            guard let self = self, let location = location else {
+                print("📍 ExploreViewModel: No se pudo obtener ubicación")
+                return
+            }
+
+            DispatchQueue.main.async {
+                print("📍 ExploreViewModel: Ubicación obtenida \(location.coordinate.latitude), \(location.coordinate.longitude)")
+                self.mapRegion = MKCoordinateRegion(
+                    center: location.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                )
+                self.cameraPosition = .region(MKCoordinateRegion(
+                    center: location.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+                ))
+                self.hasCenteredOnUser = true
+            }
+        }
     }
 }
