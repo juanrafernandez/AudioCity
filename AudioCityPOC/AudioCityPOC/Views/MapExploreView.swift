@@ -17,9 +17,18 @@ struct MapExploreView: View {
     // RouteViewModel compartido para mostrar ruta activa (opcional)
     var activeRouteViewModel: RouteViewModel?
 
+    // Callback para navegar a la pantalla de rutas
+    var onNavigateToRoute: ((String) -> Void)?
+
     @State private var showStopDetail = false
     @State private var nextStop: Stop? = nil
     @State private var lastRouteUpdateTime: Date = .distantPast
+
+    // Búsqueda de direcciones
+    @State private var searchText = ""
+    @State private var isSearching = false
+    @State private var searchResults: [MKLocalSearchCompletion] = []
+    @StateObject private var searchCompleter = SearchCompleterDelegate()
 
 
     // Computed: Si hay ruta activa
@@ -58,7 +67,91 @@ struct MapExploreView: View {
                 mapView
 
                 // Overlay con controles
-                VStack {
+                VStack(spacing: 0) {
+                    // Buscador de direcciones (arriba)
+                    VStack(spacing: 0) {
+                        // Campo de búsqueda
+                        HStack(spacing: ACSpacing.sm) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(ACColors.textTertiary)
+                                .font(.system(size: 16))
+
+                            TextField("Buscar dirección...", text: $searchText)
+                                .font(ACTypography.bodyMedium)
+                                .foregroundColor(ACColors.textPrimary)
+                                .onTapGesture {
+                                    isSearching = true
+                                }
+
+                            if !searchText.isEmpty {
+                                Button(action: {
+                                    searchText = ""
+                                    searchResults = []
+                                    isSearching = false
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(ACColors.textTertiary)
+                                        .font(.system(size: 16))
+                                }
+                            }
+                        }
+                        .padding(.horizontal, ACSpacing.md)
+                        .padding(.vertical, ACSpacing.sm)
+                        .background(ACColors.surface)
+                        .cornerRadius(ACRadius.lg)
+                        .acShadow(ACShadow.md)
+                        .padding(.horizontal, ACSpacing.containerPadding)
+                        .padding(.top, ACSpacing.md)
+
+                        // Resultados de búsqueda
+                        if isSearching && !searchResults.isEmpty {
+                            ScrollView {
+                                VStack(spacing: 0) {
+                                    ForEach(searchResults, id: \.self) { result in
+                                        Button(action: {
+                                            selectSearchResult(result)
+                                        }) {
+                                            HStack(spacing: ACSpacing.sm) {
+                                                Image(systemName: "mappin.circle.fill")
+                                                    .foregroundColor(ACColors.primary)
+                                                    .font(.system(size: 20))
+
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(result.title)
+                                                        .font(ACTypography.bodyMedium)
+                                                        .foregroundColor(ACColors.textPrimary)
+                                                        .lineLimit(1)
+
+                                                    if !result.subtitle.isEmpty {
+                                                        Text(result.subtitle)
+                                                            .font(ACTypography.caption)
+                                                            .foregroundColor(ACColors.textSecondary)
+                                                            .lineLimit(1)
+                                                    }
+                                                }
+
+                                                Spacer()
+                                            }
+                                            .padding(.horizontal, ACSpacing.md)
+                                            .padding(.vertical, ACSpacing.sm)
+                                        }
+
+                                        if result != searchResults.last {
+                                            Divider()
+                                                .padding(.leading, 44)
+                                        }
+                                    }
+                                }
+                            }
+                            .frame(maxHeight: 200)
+                            .background(ACColors.surface)
+                            .cornerRadius(ACRadius.lg)
+                            .acShadow(ACShadow.md)
+                            .padding(.horizontal, ACSpacing.containerPadding)
+                            .padding(.top, ACSpacing.xs)
+                        }
+                    }
+
                     Spacer()
 
                     // Botón de mi ubicación (siempre visible, arriba del overlay de ruta)
@@ -93,7 +186,13 @@ struct MapExploreView: View {
                             onPause: { viewModel.pauseAudio() },
                             onResume: { viewModel.resumeAudio() },
                             onStop: { viewModel.stopAudio() },
-                            onClose: { viewModel.selectedStop = nil }
+                            onClose: { viewModel.selectedStop = nil },
+                            onViewRoute: {
+                                // Detener audio y navegar a la ruta
+                                viewModel.stopAudio()
+                                viewModel.selectedStop = nil
+                                onNavigateToRoute?(selectedStop.routeId)
+                            }
                         )
                         .padding(.horizontal, ACSpacing.containerPadding)
                         .padding(.bottom, ACSpacing.md)
@@ -134,6 +233,54 @@ struct MapExploreView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     centerMapOnRoute()
                 }
+            }
+        }
+        .onChange(of: searchText) { _, newValue in
+            if newValue.isEmpty {
+                searchResults = []
+            } else {
+                searchCompleter.search(query: newValue)
+            }
+        }
+        .onReceive(searchCompleter.$results) { results in
+            searchResults = results
+        }
+        .onTapGesture {
+            // Cerrar búsqueda al tocar el mapa
+            if isSearching && searchText.isEmpty {
+                isSearching = false
+            }
+        }
+    }
+
+    // MARK: - Search Functions
+
+    private func selectSearchResult(_ result: MKLocalSearchCompletion) {
+        // Buscar la ubicación completa
+        let searchRequest = MKLocalSearch.Request(completion: result)
+        let search = MKLocalSearch(request: searchRequest)
+
+        search.start { response, error in
+            guard let coordinate = response?.mapItems.first?.placemark.coordinate else {
+                print("❌ No se pudo encontrar la ubicación")
+                return
+            }
+
+            DispatchQueue.main.async {
+                // Centrar el mapa en la ubicación seleccionada
+                let region = MKCoordinateRegion(
+                    center: coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                )
+                viewModel.mapRegion = region
+                viewModel.activeRouteCameraPosition = .region(region)
+
+                // Limpiar búsqueda
+                searchText = ""
+                searchResults = []
+                isSearching = false
+
+                print("📍 Mapa centrado en: \(result.title)")
             }
         }
     }
@@ -607,6 +754,7 @@ struct StopDetailCard: View {
     let onResume: () -> Void
     let onStop: () -> Void
     let onClose: () -> Void
+    var onViewRoute: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: ACSpacing.md) {
@@ -660,10 +808,40 @@ struct StopDetailCard: View {
             Divider()
                 .background(ACColors.border)
 
-            // Controles de audio
-            HStack(spacing: ACSpacing.md) {
+            // Controles de audio y ver ruta
+            HStack(spacing: ACSpacing.sm) {
                 if !isPlaying && !isPaused {
-                    ACButton("Escuchar", icon: "play.fill", style: .primary, isFullWidth: true, action: onPlay)
+                    // Botón escuchar preview
+                    Button(action: onPlay) {
+                        HStack(spacing: ACSpacing.xs) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 14))
+                            Text("Escuchar")
+                                .font(ACTypography.labelMedium)
+                        }
+                        .foregroundColor(ACColors.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, ACSpacing.sm)
+                        .background(ACColors.primaryLight)
+                        .cornerRadius(ACRadius.md)
+                    }
+
+                    // Botón ver ruta
+                    if let onViewRoute = onViewRoute {
+                        Button(action: onViewRoute) {
+                            HStack(spacing: ACSpacing.xs) {
+                                Image(systemName: "map.fill")
+                                    .font(.system(size: 14))
+                                Text("Ver ruta")
+                                    .font(ACTypography.labelMedium)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, ACSpacing.sm)
+                            .background(ACColors.primary)
+                            .cornerRadius(ACRadius.md)
+                        }
+                    }
                 } else {
                     // Pause/Resume
                     Button(action: isPaused ? onResume : onPause) {
@@ -694,6 +872,18 @@ struct StopDetailCard: View {
                         }
                         .frame(width: 40)
                     }
+
+                    // Botón ver ruta (también cuando reproduce)
+                    if let onViewRoute = onViewRoute {
+                        Button(action: onViewRoute) {
+                            Image(systemName: "map.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(ACColors.primary)
+                                .frame(width: 44, height: 44)
+                                .background(ACColors.primaryLight)
+                                .cornerRadius(ACRadius.md)
+                        }
+                    }
                 }
             }
         }
@@ -701,6 +891,34 @@ struct StopDetailCard: View {
         .background(ACColors.surface)
         .cornerRadius(ACRadius.xl)
         .acShadow(ACShadow.lg)
+    }
+}
+
+// MARK: - Search Completer Delegate
+
+class SearchCompleterDelegate: NSObject, ObservableObject, MKLocalSearchCompleterDelegate {
+    @Published var results: [MKLocalSearchCompletion] = []
+
+    private let completer = MKLocalSearchCompleter()
+
+    override init() {
+        super.init()
+        completer.delegate = self
+        completer.resultTypes = [.address, .pointOfInterest]
+    }
+
+    func search(query: String) {
+        completer.queryFragment = query
+    }
+
+    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        DispatchQueue.main.async {
+            self.results = completer.results
+        }
+    }
+
+    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        print("❌ Error en búsqueda: \(error.localizedDescription)")
     }
 }
 

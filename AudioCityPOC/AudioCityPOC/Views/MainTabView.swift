@@ -26,20 +26,13 @@ struct MainTabView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
-                // Tab 1: Explorar mapa (siempre muestra MapExploreView, con overlay de ruta activa si aplica)
-                MapExploreView(activeRouteViewModel: activeRouteViewModel)
-                    .tabItem {
-                        Label("Explorar", systemImage: selectedTab == 0 ? "map.fill" : "map")
-                    }
-                    .tag(0)
-
-                // Tab 2: Rutas
+                // Tab 1: Rutas
                 RoutesListView(
                     sharedViewModel: activeRouteViewModel,
                     onRouteStarted: {
-                        // Esto se llama cuando la ruta está lista
+                        // Esto se llama cuando la ruta está lista, ir al mapa
                         withAnimation(ACAnimation.spring) {
-                            selectedTab = 0
+                            selectedTab = 1
                         }
                     },
                     onShowOptimizeSheet: { stopInfo in
@@ -55,9 +48,25 @@ struct MainTabView: View {
                     }
                 )
                 .tabItem {
-                    Label("Rutas", systemImage: selectedTab == 1 ? "headphones" : "headphones")
+                    Label("Rutas", systemImage: selectedTab == 0 ? "headphones" : "headphones")
                 }
-                .tag(1)
+                .tag(0)
+
+                // Tab 2: Explorar mapa (siempre muestra MapExploreView, con overlay de ruta activa si aplica)
+                MapExploreView(
+                    activeRouteViewModel: activeRouteViewModel,
+                    onNavigateToRoute: { routeId in
+                        // Navegar al tab de Rutas y seleccionar la ruta
+                        activeRouteViewModel.selectRouteById(routeId)
+                        withAnimation(ACAnimation.spring) {
+                            selectedTab = 0
+                        }
+                    }
+                )
+                    .tabItem {
+                        Label("Explorar", systemImage: selectedTab == 1 ? "map.fill" : "map")
+                    }
+                    .tag(1)
 
                 // Tab 3: Mis Rutas
                 MyRoutesView()
@@ -82,14 +91,14 @@ struct MainTabView: View {
             }
             .tint(ACColors.primary)
 
-            // Mini player flotante cuando hay ruta activa (excepto en tab de explorar)
-            if activeRouteViewModel.isRouteActive && selectedTab != 0 && !showOptimizeSheet {
+            // Mini player flotante cuando hay ruta activa (excepto en tab de explorar que es el 1)
+            if activeRouteViewModel.isRouteActive && selectedTab != 1 && !showOptimizeSheet {
                 VStack {
                     Spacer()
                     ActiveRouteMiniPlayer(viewModel: activeRouteViewModel) {
-                        // Al tocar, ir al mapa
+                        // Al tocar, ir al mapa (Explorar = tab 1)
                         withAnimation(ACAnimation.spring) {
-                            selectedTab = 0
+                            selectedTab = 1
                         }
                     }
                     .padding(.horizontal, ACSpacing.containerPadding)
@@ -144,11 +153,11 @@ struct MainTabView: View {
 
                     // Pequeña pausa para que se vea que terminó de calcular
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        // Cerrar sheet y navegar
+                        // Cerrar sheet y navegar al mapa (Explorar = tab 1)
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                             showOptimizeSheet = false
                             isCalculatingRoute = false
-                            selectedTab = 0
+                            selectedTab = 1
                         }
                     }
                 }

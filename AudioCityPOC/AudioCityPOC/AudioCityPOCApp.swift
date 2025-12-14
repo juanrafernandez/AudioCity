@@ -11,6 +11,7 @@ import UIKit
 
 @main
 struct AudioCityPOCApp: App {
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // Configurar Firebase
@@ -39,6 +40,13 @@ struct AudioCityPOCApp: App {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(.light)  // Forzar modo claro - el sistema de diseño está optimizado para light mode
+                .onChange(of: scenePhase) { oldPhase, newPhase in
+                    if newPhase == .background {
+                        // La app pasa a background - terminar Live Activity
+                        print("📱 App en background - cerrando Live Activity")
+                        LiveActivityServiceWrapper.shared.endActivity()
+                    }
+                }
         }
     }
 }

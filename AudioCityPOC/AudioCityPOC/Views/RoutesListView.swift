@@ -14,11 +14,13 @@ struct RoutesListView: View {
     // Support for both standalone and shared viewModel modes
     @ObservedObject private var viewModel: RouteViewModel
     @ObservedObject private var tripService = TripService.shared
+    @ObservedObject private var exploreViewModel = ExploreViewModel.shared
     @StateObject private var favoritesService = FavoritesService()
     @State private var showingTripOnboarding = false
     @State private var showingAllRoutes = false
     @State private var showingAllTrips = false
     @State private var selectedTrip: Trip?
+    @State private var userLocation: CLLocation?
 
     // Callbacks para manejar la optimización a nivel global (MainTabView)
     var onRouteStarted: (() -> Void)?
@@ -76,10 +78,22 @@ struct RoutesListView: View {
             if viewModel.availableRoutes.isEmpty {
                 viewModel.loadAvailableRoutes()
             }
+            // Obtener ubicación actual para ordenar por proximidad
+            userLocation = exploreViewModel.locationService.userLocation
+            if userLocation == nil {
+                exploreViewModel.locationService.requestSingleLocation { location in
+                    userLocation = location
+                }
+            }
             // Iniciar tracking de ubicación para que esté disponible al iniciar ruta
             if viewModel.locationService.authorizationStatus == .authorizedWhenInUse ||
                viewModel.locationService.authorizationStatus == .authorizedAlways {
                 viewModel.locationService.startTracking()
+            }
+        }
+        .onReceive(exploreViewModel.locationService.$userLocation) { location in
+            if let location = location, userLocation == nil {
+                userLocation = location
             }
         }
         .sheet(isPresented: $showingTripOnboarding) {
@@ -331,6 +345,7 @@ struct RoutesListView: View {
                             subtitle: route.city,
                             duration: "\(route.durationMinutes) min",
                             stopsCount: route.numStops,
+                            thumbnailUrl: route.thumbnailUrl.isEmpty ? nil : route.thumbnailUrl,
                             onTap: { viewModel.selectRoute(route) }
                         )
                     }
@@ -379,15 +394,32 @@ struct RoutesListView: View {
     }
 
     // MARK: - Computed Properties
+
+    /// Ordena rutas por proximidad a la ubicación del usuario
+    private func sortByProximity(_ routes: [Route]) -> [Route] {
+        guard let location = userLocation else { return routes }
+
+        return routes.sorted { route1, route2 in
+            let distance1 = location.distance(from: CLLocation(
+                latitude: route1.startLocation.latitude,
+                longitude: route1.startLocation.longitude
+            ))
+            let distance2 = location.distance(from: CLLocation(
+                latitude: route2.startLocation.latitude,
+                longitude: route2.startLocation.longitude
+            ))
+            return distance1 < distance2
+        }
+    }
+
     private var favoriteRoutes: [Route] {
-        favoritesService.filterFavorites(from: viewModel.availableRoutes)
+        sortByProximity(favoritesService.filterFavorites(from: viewModel.availableRoutes))
     }
 
     private var topRoutes: [Route] {
-        Array(viewModel.availableRoutes
+        let filtered = viewModel.availableRoutes
             .filter { !favoritesService.isFavorite($0.id) }
-            .sorted { $0.numStops > $1.numStops }
-            .prefix(5))
+        return Array(sortByProximity(filtered).prefix(5))
     }
 
     private var trendingRoutes: [Route] {

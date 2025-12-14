@@ -107,28 +107,46 @@ struct ACCompactRouteCard: View {
     let subtitle: String
     let duration: String
     let stopsCount: Int
+    var thumbnailUrl: String? = nil
     let onTap: () -> Void
+
+    /// Verifica si hay una URL de imagen válida
+    private var hasValidThumbnail: Bool {
+        guard let url = thumbnailUrl, !url.isEmpty else { return false }
+        return URL(string: url) != nil
+    }
 
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: ACSpacing.sm) {
                 // Header con imagen
                 ZStack(alignment: .bottomLeading) {
-                    RoundedRectangle(cornerRadius: ACRadius.md)
-                        .fill(
-                            LinearGradient(
-                                colors: [ACColors.primary.opacity(0.8), ACColors.primaryDark],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                    // Imagen de fondo o gradiente por defecto
+                    if hasValidThumbnail, let url = URL(string: thumbnailUrl!) {
+                        CachedAsyncImage(url: url) {
+                            // Loading placeholder
+                            defaultBackground
+                                .overlay(
+                                    ProgressView()
+                                        .tint(.white)
+                                )
+                        }
+                        .aspectRatio(contentMode: .fill)
                         .frame(height: 100)
-
-                    // Icono decorativo
-                    Image(systemName: "headphones")
-                        .font(.system(size: 40))
-                        .foregroundColor(Color.white.opacity(0.3))
-                        .offset(x: 100, y: -20)
+                        .clipped()
+                        .cornerRadius(ACRadius.md)
+                        .overlay(
+                            // Gradiente oscuro para legibilidad del badge
+                            LinearGradient(
+                                colors: [.clear, .black.opacity(0.4)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .cornerRadius(ACRadius.md)
+                        )
+                    } else {
+                        defaultBackground
+                    }
 
                     // Badge de paradas
                     HStack(spacing: ACSpacing.xs) {
@@ -144,6 +162,8 @@ struct ACCompactRouteCard: View {
                     .cornerRadius(ACRadius.sm)
                     .padding(ACSpacing.sm)
                 }
+                .frame(height: 100)
+                .clipped()
 
                 // Info
                 VStack(alignment: .leading, spacing: ACSpacing.xxs) {
@@ -174,6 +194,26 @@ struct ACCompactRouteCard: View {
             .acShadow(ACShadow.sm)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    /// Fondo por defecto cuando no hay imagen
+    private var defaultBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: ACRadius.md)
+                .fill(
+                    LinearGradient(
+                        colors: [ACColors.primary.opacity(0.8), ACColors.primaryDark],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(height: 100)
+
+            // Icono decorativo centrado
+            Image(systemName: "headphones")
+                .font(.system(size: 40))
+                .foregroundColor(Color.white.opacity(0.3))
+        }
     }
 }
 

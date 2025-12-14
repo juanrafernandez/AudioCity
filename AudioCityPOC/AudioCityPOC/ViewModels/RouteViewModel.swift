@@ -209,6 +209,40 @@ class RouteViewModel: ObservableObject {
         errorMessage = nil
     }
 
+    /// Seleccionar una ruta por su ID
+    func selectRouteById(_ routeId: String) {
+        // Buscar la ruta en las rutas disponibles
+        if let route = availableRoutes.first(where: { $0.id == routeId }) {
+            selectRoute(route)
+        } else {
+            // Si no está en availableRoutes, cargar desde Firebase
+            isLoading = true
+            errorMessage = nil
+
+            Task {
+                do {
+                    let routes = try await firebaseService.fetchAllRoutes()
+                    if let route = routes.first(where: { $0.id == routeId }) {
+                        await MainActor.run {
+                            self.availableRoutes = routes
+                            self.selectRoute(route)
+                        }
+                    } else {
+                        await MainActor.run {
+                            self.errorMessage = "Ruta no encontrada"
+                            self.isLoading = false
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.errorMessage = "Error cargando ruta: \(error.localizedDescription)"
+                        self.isLoading = false
+                    }
+                }
+            }
+        }
+    }
+
     /// Solicitar ubicación actual (para usar antes de verificar optimización)
     func requestCurrentLocation(completion: @escaping (CLLocation?) -> Void) {
         // Si ya tenemos ubicación reciente, usarla

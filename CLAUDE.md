@@ -14,28 +14,32 @@ Plataforma de turismo con audioguías geolocalizadas estilo **Wikiloc**. El usua
 - **Audio:** AVFoundation (Text-to-Speech con cola de reproducción)
 - **Mapas:** MapKit
 - **Persistencia local:** UserDefaults (viajes, favoritos, caché, puntos, historial)
+- **Live Activities:** ActivityKit para Dynamic Island
 
 ### Android (planificado)
 - Jetpack Compose + MVVM + Flow
 - Firebase + Google Location Services + Google Maps SDK
 - SharedPreferences/Room para persistencia
+- **Deberá implementar:** Notificaciones persistentes para ruta activa (equivalente a Live Activities)
 
 ## Estructura del Proyecto
 
 ```
 AudioCityPOC/
 ├── Models/
-│   ├── Route.swift          # Ruta con metadatos
-│   ├── Stop.swift           # Parada con script de audio
-│   ├── Trip.swift           # Viaje planificado por usuario
-│   ├── CachedRoute.swift    # Ruta guardada para offline
-│   ├── UserRoute.swift      # Ruta creada por usuario (UGC)
-│   ├── RouteHistory.swift   # Historial de rutas completadas
-│   └── Points.swift         # Sistema de puntos y niveles
+│   ├── Route.swift              # Ruta con metadatos y thumbnailUrl
+│   ├── Stop.swift               # Parada con script de audio
+│   ├── Trip.swift               # Viaje planificado por usuario
+│   ├── CachedRoute.swift        # Ruta guardada para offline
+│   ├── UserRoute.swift          # Ruta creada por usuario (UGC)
+│   ├── RouteHistory.swift       # Historial de rutas completadas
+│   ├── Points.swift             # Sistema de puntos y niveles
+│   └── RouteActivityAttributes.swift  # Atributos para Live Activity
 ├── Services/
 │   ├── LocationService.swift    # Geolocalización + geofences nativos
 │   ├── GeofenceService.swift    # Detección de paradas por proximidad
 │   ├── AudioService.swift       # TTS con cola de reproducción
+│   ├── AudioPreviewService.swift # Preview de audio en cards
 │   ├── FirebaseService.swift    # Conexión a Firestore
 │   ├── TripService.swift        # CRUD de viajes del usuario
 │   ├── FavoritesService.swift   # Gestión de rutas favoritas
@@ -43,35 +47,236 @@ AudioCityPOC/
 │   ├── NotificationService.swift # Notificaciones locales al llegar a paradas
 │   ├── UserRoutesService.swift  # CRUD de rutas creadas por usuario
 │   ├── HistoryService.swift     # Historial de rutas completadas
-│   └── PointsService.swift      # Sistema de gamificación
+│   ├── PointsService.swift      # Sistema de gamificación
+│   ├── ImageCacheService.swift  # Caché de imágenes en memoria y disco
+│   ├── RouteCalculationService.swift  # Cálculo de rutas caminando
+│   └── RouteOptimizationService.swift # Optimización de orden de paradas
+├── LiveActivity/
+│   └── LiveActivityService.swift # Gestión de Dynamic Island
 ├── ViewModels/
 │   ├── RouteViewModel.swift     # Orquesta servicios para rutas
-│   └── ExploreViewModel.swift   # Mapa de exploración
+│   └── ExploreViewModel.swift   # Mapa de exploración (Singleton)
 ├── Views/
 │   ├── SplashView.swift
-│   ├── MainTabView.swift        # 5 tabs: Explorar, Rutas, Mis Rutas, Historial, Perfil
+│   ├── MainTabView.swift        # 5 tabs con orden: Rutas, Explorar, Crear, Historial, Perfil
 │   ├── RoutesListView.swift     # Pantalla principal de rutas (secciones)
 │   ├── AllRoutesView.swift      # Buscador con filtros
 │   ├── AllTripsView.swift       # Lista completa de viajes (pasados/futuros)
 │   ├── TripOnboardingView.swift # Wizard planificar viaje (4 pasos)
 │   ├── TripDetailView.swift     # Detalle de viaje (ver/editar rutas)
-│   ├── MapExploreView.swift     # Mapa con todas las paradas
+│   ├── MapExploreView.swift     # Mapa con todas las paradas + buscador
 │   ├── MapView.swift            # Mapa de ruta activa
 │   ├── RouteDetailView.swift
+│   ├── ActiveRouteView.swift    # Vista de ruta en progreso
+│   ├── ActiveRouteMiniPlayer.swift # Mini player flotante
 │   ├── MyRoutesView.swift       # Rutas creadas por usuario (UGC)
 │   ├── HistoryView.swift        # Historial de rutas completadas
 │   └── ProfileView.swift        # Perfil con puntos y nivel
+├── DesignSystem/
+│   ├── Theme.swift              # Colores, tipografía, espaciados
+│   └── Components/              # Componentes reutilizables (ACButton, ACCard, etc.)
+├── RouteActivityWidget/         # Widget Extension para Live Activity
+│   ├── RouteActivityWidget.swift
+│   └── RouteActivityWidgetBundle.swift
 └── Assets.xcassets/
 ```
 
 ## Navegación por Tabs (MainTabView)
 
 ```
-Tab 1: Explorar     → MapExploreView (mapa con paradas)
-Tab 2: Rutas        → RoutesListView (catálogo de rutas)
-Tab 3: Mis Rutas    → MyRoutesView (rutas creadas por usuario)
-Tab 4: Historial    → HistoryView (rutas completadas)
-Tab 5: Perfil       → ProfileView (puntos, nivel, configuración)
+Tab 0: Rutas        → RoutesListView (catálogo de rutas) - TAB INICIAL
+Tab 1: Explorar     → MapExploreView (mapa con paradas + buscador de direcciones)
+Tab 2: Crear        → MyRoutesView (rutas creadas por usuario)
+Tab 3: Historial    → HistoryView (rutas completadas)
+Tab 4: Perfil       → ProfileView (puntos, nivel, configuración)
+```
+
+## Dynamic Island / Live Activity
+
+### Funcionalidad
+- Muestra la distancia al próximo punto de la ruta activa
+- Se actualiza en tiempo real mientras el usuario camina
+- Colores según proximidad: coral (>200m), naranja (50-200m), verde (<50m)
+- **Se cierra automáticamente cuando la app pasa a background**
+
+### Implementación iOS
+```swift
+// Iniciar Live Activity
+LiveActivityServiceWrapper.shared.startActivity(
+    routeName: route.name,
+    routeCity: route.city,
+    routeId: route.id,
+    distanceToNextStop: distance,
+    nextStopName: stop.name,
+    nextStopOrder: stop.order,
+    visitedStops: visited,
+    totalStops: total,
+    isPlaying: false
+)
+
+// Actualizar
+LiveActivityServiceWrapper.shared.updateActivity(...)
+
+// Finalizar
+LiveActivityServiceWrapper.shared.endActivity()
+```
+
+### Implementación Android (equivalente)
+Usar **Notificación persistente** con:
+- Estilo: `NotificationCompat.Builder` con prioridad alta
+- Mostrar: distancia, nombre próxima parada, progreso
+- Actualizar en tiempo real con `NotificationManager.notify()`
+- Colores según proximidad (igual que iOS)
+
+## Ordenación de Rutas por Proximidad
+
+Las rutas en la pantalla principal se ordenan por cercanía a la ubicación del usuario:
+
+### iOS
+```swift
+// En RoutesListView
+private func sortByProximity(_ routes: [Route]) -> [Route] {
+    guard let location = userLocation else { return routes }
+    return routes.sorted { route1, route2 in
+        let distance1 = location.distance(from: CLLocation(
+            latitude: route1.startLocation.latitude,
+            longitude: route1.startLocation.longitude
+        ))
+        let distance2 = location.distance(from: CLLocation(
+            latitude: route2.startLocation.latitude,
+            longitude: route2.startLocation.longitude
+        ))
+        return distance1 < distance2
+    }
+}
+```
+
+### Android (equivalente)
+```kotlin
+fun sortByProximity(routes: List<Route>, userLocation: Location): List<Route> {
+    return routes.sortedBy { route ->
+        val routeLocation = Location("").apply {
+            latitude = route.startLocation.latitude
+            longitude = route.startLocation.longitude
+        }
+        userLocation.distanceTo(routeLocation)
+    }
+}
+```
+
+## Caché de Imágenes
+
+### Funcionalidad
+- Caché en memoria (NSCache/LruCache) para acceso rápido
+- Caché en disco para persistencia entre sesiones
+- Las imágenes de rutas (`thumbnailUrl`) se cachean automáticamente
+
+### iOS (ImageCacheService)
+```swift
+// Singleton
+ImageCacheService.shared.loadImage(from: url)  // Descarga con caché
+ImageCacheService.shared.getImage(for: url)    // Solo caché
+ImageCacheService.shared.clearCache()          // Limpiar
+
+// Componente SwiftUI
+CachedAsyncImage(url: url) {
+    // Placeholder mientras carga
+}
+```
+
+### Android (equivalente)
+Usar **Coil** o **Glide** con caché configurado:
+```kotlin
+// Con Coil
+AsyncImage(
+    model = ImageRequest.Builder(context)
+        .data(thumbnailUrl)
+        .crossfade(true)
+        .diskCachePolicy(CachePolicy.ENABLED)
+        .memoryCachePolicy(CachePolicy.ENABLED)
+        .build(),
+    placeholder = painterResource(R.drawable.placeholder),
+    contentDescription = null
+)
+```
+
+## Imágenes de Rutas (thumbnailUrl)
+
+### Modelo Route
+```swift
+struct Route {
+    // ... otros campos
+    let thumbnailUrl: String  // URL de imagen de la ruta (puede estar vacío)
+    let startLocation: Location  // Para ordenar por proximidad
+}
+```
+
+### Visualización
+- Si `thumbnailUrl` tiene una URL válida: mostrar imagen con gradiente oscuro
+- Si está vacío: mostrar placeholder con gradiente coral e icono de auriculares centrado
+
+### Firebase
+Campo `thumbnail_url` en la colección `routes`:
+```json
+{
+  "id": "letras-poc-001",
+  "name": "Barrio de las Letras",
+  "thumbnail_url": "https://storage.googleapis.com/...",
+  "start_location": {
+    "latitude": 40.4140,
+    "longitude": -3.6980,
+    "name": "Plaza de Santa Ana"
+  }
+}
+```
+
+## Buscador de Direcciones (MapExploreView)
+
+### Funcionalidad
+- Campo de búsqueda en la parte superior del mapa
+- Autocompletado con MKLocalSearchCompleter (iOS) / Places API (Android)
+- Al seleccionar resultado, centra el mapa en esa ubicación
+
+### iOS
+```swift
+class SearchCompleterDelegate: NSObject, MKLocalSearchCompleterDelegate {
+    private let completer = MKLocalSearchCompleter()
+
+    func search(query: String) {
+        completer.queryFragment = query
+    }
+}
+```
+
+### Android (equivalente)
+```kotlin
+// Usar Places SDK
+val request = FindAutocompletePredictionsRequest.builder()
+    .setQuery(searchText)
+    .build()
+placesClient.findAutocompletePredictions(request)
+```
+
+## Botón "Ver Ruta" en Paradas del Mapa
+
+Cuando el usuario pulsa una parada en el mapa de exploración:
+1. Se muestra `StopDetailCard` con información de la parada
+2. Botón "Ver ruta" navega al tab Rutas con esa ruta seleccionada
+3. Se detiene cualquier audio en reproducción
+
+```swift
+// En MapExploreView
+onViewRoute: {
+    viewModel.stopAudio()
+    viewModel.selectedStop = nil
+    onNavigateToRoute?(selectedStop.routeId)
+}
+
+// En MainTabView
+onNavigateToRoute: { routeId in
+    activeRouteViewModel.selectRouteById(routeId)
+    selectedTab = 0  // Tab Rutas
+}
 ```
 
 ## Sistema de Gamificación (Puntos y Niveles)
@@ -100,57 +305,6 @@ Tab 5: Perfil       → ProfileView (puntos, nivel, configuración)
 | 4 | 600-999 | Experto | star.fill |
 | 5 | 1000+ | Maestro AudioCity | crown.fill |
 
-### PointsService (Singleton)
-```swift
-PointsService.shared.awardPointsForCreatingRoute(routeId:routeName:stopsCount:)
-PointsService.shared.awardPointsForCompletingRoute(routeId:routeName:)
-PointsService.shared.awardPointsForPublishingRoute(routeId:routeName:)
-PointsService.shared.stats  // UserPointsStats con nivel y progreso
-```
-
-## Creación de Rutas por Usuario (UGC)
-
-### MyRoutesView
-- Lista de rutas creadas por el usuario
-- Estado vacío con botón para crear primera ruta
-- Indicador de estado: "Publicada" (verde) / "Borrador" (naranja)
-- Swipe para eliminar
-
-### CreateRouteView
-- Formulario: nombre, ciudad, barrio (opcional), descripción
-- Al crear, la ruta empieza sin paradas
-
-### EditRouteView
-- Editar información básica
-- Gestionar paradas (añadir, eliminar, reordenar)
-- Toggle para publicar/despublicar
-- Eliminar ruta
-
-### AddStopView
-- Nombre, descripción, coordenadas (lat/lon)
-- Narración (script que se reproducirá)
-
-### UserRoutesService (Singleton)
-```swift
-UserRoutesService.shared.createRoute(name:city:description:neighborhood:)
-UserRoutesService.shared.addStop(to:stop:)  // Otorga puntos al alcanzar 3/5/10 paradas
-UserRoutesService.shared.togglePublish(_:)  // Otorga puntos al publicar
-```
-
-## Historial de Rutas (HistoryView)
-
-- Rutas completadas agrupadas por fecha
-- Estadísticas: rutas totales, distancia recorrida, tiempo total, % completado
-- Cada registro muestra: progreso circular, nombre, ciudad, hora, duración
-- Opción para borrar historial
-
-### HistoryService (Singleton)
-```swift
-HistoryService.shared.startRoute(routeId:routeName:routeCity:totalStops:)
-HistoryService.shared.updateProgress(historyId:stopsVisited:distanceWalkedKm:)
-HistoryService.shared.completeRoute(historyId:)  // Otorga puntos automáticamente
-```
-
 ## Arquitectura de Pantalla de Rutas (RoutesListView)
 
 ```
@@ -159,198 +313,150 @@ RoutesListView
 │   ├── [Viajes existentes] → TripCard → TripDetailView
 │   ├── [+ Planificar] → TripOnboardingView
 │   └── [Ver todos] → AllTripsView
-├── ❤️ Rutas Favoritas (scroll horizontal, si hay)
-├── ⭐ Top Rutas (scroll horizontal) - ordenadas por nº paradas
-├── 🔥 Rutas de Moda (scroll horizontal) - actualmente mockeadas
+├── ❤️ Rutas Favoritas (scroll horizontal, ordenadas por proximidad)
+├── ⭐ Top Rutas (scroll horizontal, ordenadas por proximidad)
+├── 🔥 Rutas Populares (scroll horizontal) - actualmente mockeadas
 └── 🗺️ [Todas las Rutas] → AllRoutesView (buscador + filtros)
 ```
 
-### Rutas de Moda (Mock)
-Rutas temporales hardcodeadas para visualizar la UI:
-- **Ruta de la Tapa por Lavapiés** - gastronomía, 90min, 8 paradas
-- **Ruta de Navidad** - luces y mercadillos, 120min, 10 paradas
-- **Ruta Black Friday** - compras, 150min, 12 paradas
+## Optimización de Ruta
 
-> TODO: Reemplazar por lógica real de trending (popularidad, recientes, etc.)
+Cuando el usuario inicia una ruta, se le ofrece optimizar el orden:
+1. Se calcula la parada más cercana a su ubicación actual
+2. Si no es la primera parada, se muestra sheet de optimización
+3. Opciones: "Optimizar ruta" (reordena) o "Seguir orden original"
 
-## Flujo de Planificación de Viaje (TripOnboardingView)
-
-```
-Paso 1: Destino     → Seleccionar ciudad (Madrid, Valladolid, Zamora...)
-Paso 2: Rutas       → Seleccionar múltiples rutas del destino
-Paso 3: Opciones    → Fechas (opcional) + descarga offline
-Paso 4: Resumen     → Confirmar y crear viaje
+```swift
+// RouteOptimizationService
+func shouldSuggestOptimization(stops: [Stop], userLocation: CLLocation) -> Bool
+func getNearestStopInfo(stops: [Stop], userLocation: CLLocation) -> (name, distance, order)?
+func optimizeRoute(stops: [Stop], userLocation: CLLocation) -> [Stop]
 ```
 
 ## Modelos de Datos Principales
 
-### Trip (viaje del usuario)
+### Route
 ```swift
-struct Trip {
+struct Route {
     let id: String
-    let destinationCity: String
-    let destinationCountry: String
-    var selectedRouteIds: [String]
-    let createdAt: Date
-    var startDate: Date?      // opcional
-    var endDate: Date?        // opcional
-    var isOfflineAvailable: Bool
-    var lastSyncDate: Date?
-
-    var isPast: Bool          // Viaje pasado
-    var isCurrent: Bool       // Viaje en curso
-    var isFuture: Bool        // Viaje futuro
+    let name: String
+    let description: String
+    let city: String
+    let neighborhood: String
+    let durationMinutes: Int
+    let distanceKm: Double
+    let difficulty: String
+    let numStops: Int
+    let thumbnailUrl: String      // URL de imagen (puede estar vacío)
+    let startLocation: Location   // Para ordenar por proximidad
+    let endLocation: Location
 }
 ```
 
-### UserRoute (ruta creada por usuario)
+### Stop
 ```swift
-struct UserRoute {
+struct Stop {
     let id: String
-    var name: String
-    var description: String
-    var city: String
-    var neighborhood: String
-    var stops: [UserStop]
-    var isPublished: Bool
-    var totalDistanceKm: Double
-    var estimatedDurationMinutes: Int
-}
-```
-
-### RouteHistory (historial)
-```swift
-struct RouteHistory {
     let routeId: String
-    let routeName: String
-    let startedAt: Date
-    var completedAt: Date?
-    var stopsVisited: Int
-    var totalStops: Int
-    var completionPercentage: Int  // 0-100
-}
-```
-
-### UserPointsStats (puntos)
-```swift
-struct UserPointsStats {
-    var totalPoints: Int
-    var currentLevel: UserLevel
-    var routesCreated: Int
-    var routesCompleted: Int
-    var currentStreak: Int
-    var progressToNextLevel: Double  // 0.0-1.0
+    let name: String
+    let description: String
+    let scriptEs: String          // Narración en español
+    let order: Int
+    let latitude: Double
+    let longitude: Double
+    let triggerRadiusMeters: Double
+    let audioDurationSeconds: Int
+    var hasBeenVisited: Bool      // Estado durante ruta activa
 }
 ```
 
 ## Servicios Clave
 
-### TripService (Singleton)
-- `TripService.shared` - Instancia compartida
-- `createTrip()` - Crear viaje (valida duplicados)
-- `addRoute(routeId, tripId)` - Añadir ruta a viaje
-- `removeRoute(routeId, tripId)` - Quitar ruta de viaje
-- `deleteTrip()` - Eliminar viaje
-- `loadAvailableDestinations()` - Cargar ciudades desde Firebase
-- `activeRouteIds` - IDs de rutas en viajes activos (para pins rosas en mapa)
-- `tripExists(city, dates)` - Validar duplicados
-- Persistencia en UserDefaults
+### ExploreViewModel (Singleton)
+- `ExploreViewModel.shared` - Estado compartido del mapa
+- Persiste posición del mapa entre cambios de tab
+- `requestCurrentLocation()` - Solicita ubicación única (no tracking continuo)
+- `hasCenteredOnUser` - Evita re-centrar innecesariamente
 
-### FavoritesService
-- `toggleFavorite(routeId)` - Toggle favorito
-- `isFavorite(routeId)` - Verificar si es favorito
-- `filterFavorites(routes)` - Filtrar rutas favoritas
-- Persistencia en UserDefaults
+### ImageCacheService (Singleton)
+- `loadImage(from: URL)` - Descarga con caché automática
+- `getImage(for: URL)` - Solo consulta caché
+- `clearCache()` - Limpia memoria y disco
+- `formattedCacheSize()` - Tamaño de caché en disco
 
-### OfflineCacheService
-- `downloadTrip(trip, routes, stops)` - Descargar viaje completo
-- `isRouteCached(routeId)` - Verificar caché
-- `deleteCache(trip)` - Eliminar caché de viaje
-- `formattedCacheSize()` - Tamaño de caché formateado
+### LiveActivityServiceWrapper
+- `startActivity(...)` - Inicia Dynamic Island
+- `updateActivity(...)` - Actualiza distancia y estado
+- `endActivity()` - Finaliza (se llama automáticamente al cerrar app)
 
-## AllRoutesView - Buscador
+## Colores de Marca (Design System)
 
-- **Búsqueda:** nombre, descripción, ciudad, barrio
-- **Filtros:** dificultad (Fácil/Media/Difícil), ciudad
-- **Ordenación:** nombre, duración, distancia, nº paradas
-- **Favoritos:** botón de corazón en cada card
+```swift
+// Colores principales
+ACColors.primary        // Coral #FF6B5B
+ACColors.primaryDark    // Coral oscuro
+ACColors.primaryLight   // Coral claro (fondos)
+ACColors.secondary      // Rosa/Púrpura (viajes)
+
+// Estados
+ACColors.success        // Verde (completado, cerca)
+ACColors.warning        // Naranja (en progreso, medio)
+ACColors.error          // Rojo (errores)
+ACColors.info           // Azul (información, usuario→parada)
+
+// Texto
+ACColors.textPrimary    // Negro
+ACColors.textSecondary  // Gris
+ACColors.textTertiary   // Gris claro
+```
+
+## Notas para Desarrollo Android
+
+1. **Live Activity → Notificación persistente**: Crear servicio foreground con notificación actualizable
+2. **Caché de imágenes**: Usar Coil o Glide con configuración de caché
+3. **Ordenación por proximidad**: Usar `Location.distanceTo()` de Android
+4. **Buscador de direcciones**: Places SDK de Google
+5. **Singleton ViewModels**: Usar Hilt/Dagger para inyección de dependencias
+6. **Persistencia**: Room para datos complejos, DataStore para preferencias
 
 ## Rutas en Firebase
 
-| ID | Nombre | Ciudad | Paradas |
-|----|--------|--------|---------|
-| arganzuela-poc-001 | Descubre Arganzuela | Madrid | 6 |
-| letras-poc-001 | Barrio de las Letras | Madrid | 5 |
-| canal-poc-001 | Canal y Chamberí | Madrid | 5 |
-| valladolid-centro-001 | Valladolid Histórico | Valladolid | 15 |
-| zamora-romanico-001 | Zamora Románica | Zamora | 15 |
-
-## Credenciales y Archivos Externos
-
-- **Firebase credentials:** `/Users/juanrafernandez/Documents/AudioCity POC/firebase-credentials.json`
-- **GoogleService-Info.plist:** `/Users/juanrafernandez/Documents/AudioCity POC/GoogleService-Info.plist`
-- **Scripts de importación:** `/Users/juanrafernandez/Documents/AudioCity POC/import_to_firebase.py`
+| ID | Nombre | Ciudad | Paradas | Imagen |
+|----|--------|--------|---------|--------|
+| arganzuela-poc-001 | Descubre Arganzuela | Madrid | 6 | ✓ |
+| letras-poc-001 | Barrio de las Letras | Madrid | 5 | ✓ |
+| canal-poc-001 | Canal y Chamberí | Madrid | 5 | - |
+| valladolid-centro-001 | Valladolid Histórico | Valladolid | 15 | - |
+| zamora-romanico-001 | Zamora Románica | Zamora | 15 | - |
 
 ## Comandos Útiles
 
 ```bash
+# Build iOS
+/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild \
+  -project AudioCityPOC.xcodeproj \
+  -scheme AudioCityPOC \
+  -destination 'platform=iOS Simulator,name=iPhone 17' build
+
 # Subir datos a Firebase
 cd "/Users/juanrafernandez/Documents/AudioCity POC"
 export GOOGLE_APPLICATION_CREDENTIALS="firebase-credentials.json"
 python3 import_to_firebase.py
-
-# Build iOS
-xcodebuild -project AudioCityPOC/AudioCityPOC.xcodeproj -scheme AudioCityPOC -destination 'platform=iOS Simulator,name=iPhone 17' build
 ```
-
-## Conceptos Clave
-
-### Sistema Híbrido de Geofencing
-- **Geofences nativos (100m):** Despiertan la app cuando está suspendida (máx 20 en iOS)
-- **Location updates (5m):** Precisión para detectar paradas mientras la app está en background
-
-### Cola de Audio
-- Las paradas detectadas se encolan ordenadas por `order`
-- Reproducción secuencial automática
-- Evita duplicados con `processedStopIds`
-
-### Modelo de Datos Firebase
-- Colección `routes`: Rutas con metadatos (ciudad, duración, dificultad, etc.)
-- Colección `stops`: Paradas con `route_id`, `order`, coordenadas, `script_es`, `fun_fact`, `category`
 
 ## Configuración de UI
 
 - **Orientación:** Solo Portrait (iPhone y iPad)
-- **Mapa:** Se centra en ubicación del usuario al abrir
-- **Pins en mapa:** Naranja (normal), Rosa (rutas de viaje activo), Azul (seleccionado)
-
-## Colores de Marca
-
-- Brand Blue: `#3361FA` (RGB: 51, 97, 250)
-- SwiftUI: `Color(red: 0.2, green: 0.38, blue: 0.98)`
-- Favoritos: Rojo (heart.fill)
-- Trips: Púrpura / Rosa
-- Top: Amarillo (star)
-- Trending: Naranja (flame)
-- Puntos: Amarillo (star.fill)
-- Niveles: Gris → Azul → Verde → Púrpura → Naranja
-
-## Notas para Desarrollo
-
-- Los campos en Firebase usan snake_case (`route_id`, `trigger_radius_meters`)
-- Los modelos Swift usan `CodingKeys` para mapear a camelCase
-- El campo `id` debe existir explícitamente en cada documento de Firebase
-- El `distanceFilter` del LocationService está configurado a 5 metros
-- Background modes habilitados: `audio`, `location`
-- Las secciones Top/Trending excluyen rutas ya mostradas en Favoritos
-- Los puntos se otorgan automáticamente al completar acciones (no requiere llamada manual)
+- **Tema:** Solo modo claro (el design system está optimizado para light mode)
+- **Mapa:** Se centra en ubicación del usuario al abrir (una sola vez)
+- **Pins en mapa:** Coral (normal), Rosa (rutas de viaje), Verde (visitado), Azul (siguiente)
 
 ## Próximos Pasos Sugeridos
 
-1. **Descarga real de tiles de mapa** - Implementar MKTileOverlay para mapas offline
+1. **Descarga real de tiles de mapa** - Implementar para mapas offline
 2. **Audio pregrabado** - Opción de audio profesional vs TTS
 3. **Badges/logros** - Medallas especiales por ciudades/rutas completadas
-4. **Integración calendario** - Sugerir rutas según duración del viaje
-5. **Trending real** - Reemplazar rutas mock por lógica de popularidad
-6. **Sincronización Firebase** - Subir rutas de usuario y puntos a la nube
-7. **Ranking de usuarios** - Leaderboard por puntos/nivel
+4. **Trending real** - Reemplazar rutas mock por lógica de popularidad
+5. **Sincronización Firebase** - Subir rutas de usuario y puntos a la nube
+6. **Ranking de usuarios** - Leaderboard por puntos/nivel
+7. **Desarrollo Android** - Implementar paridad de funcionalidades
