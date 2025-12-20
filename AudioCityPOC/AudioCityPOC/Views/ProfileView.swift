@@ -11,6 +11,7 @@ import CoreLocation
 struct ProfileView: View {
     @StateObject private var locationService = LocationService()
     @ObservedObject private var pointsService = PointsService.shared
+    @ObservedObject private var historyService = HistoryService.shared
     @State private var showingPointsHistory = false
 
     var body: some View {
@@ -22,6 +23,9 @@ struct ProfileView: View {
 
                     // Estadísticas rápidas
                     statsSection
+
+                    // Historial de rutas
+                    historySection
 
                     // Información de la app
                     infoSection
@@ -183,6 +187,85 @@ struct ProfileView: View {
                 )
             }
             .padding(.horizontal, ACSpacing.containerPadding)
+        }
+    }
+
+    // MARK: - History Section
+    private var historySection: some View {
+        VStack(alignment: .leading, spacing: ACSpacing.md) {
+            // Header
+            HStack {
+                HStack(spacing: ACSpacing.sm) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 18))
+                        .foregroundColor(ACColors.info)
+
+                    Text("Historial")
+                        .font(ACTypography.headlineSmall)
+                        .foregroundColor(ACColors.textPrimary)
+                }
+
+                Spacer()
+
+                if !historyService.history.isEmpty {
+                    NavigationLink {
+                        HistoryView()
+                    } label: {
+                        HStack(spacing: ACSpacing.xxs) {
+                            Text("Ver todo")
+                                .font(ACTypography.labelSmall)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .foregroundColor(ACColors.primary)
+                    }
+                }
+            }
+            .padding(.horizontal, ACSpacing.containerPadding)
+
+            // Stats
+            ACHistoryStatsRow(stats: historyService.getStats())
+                .padding(.horizontal, ACSpacing.containerPadding)
+
+            // Recent routes (max 3)
+            if !historyService.history.isEmpty {
+                VStack(spacing: ACSpacing.sm) {
+                    ForEach(Array(historyService.history.prefix(3))) { record in
+                        ACHistoryRecordCard(record: record)
+                    }
+                }
+                .padding(.horizontal, ACSpacing.containerPadding)
+            } else {
+                // Empty state
+                HStack(spacing: ACSpacing.md) {
+                    ZStack {
+                        Circle()
+                            .fill(ACColors.infoLight)
+                            .frame(width: 48, height: 48)
+
+                        Image(systemName: "map")
+                            .font(.system(size: 20))
+                            .foregroundColor(ACColors.info)
+                    }
+
+                    VStack(alignment: .leading, spacing: ACSpacing.xxs) {
+                        Text("Sin rutas completadas")
+                            .font(ACTypography.titleSmall)
+                            .foregroundColor(ACColors.textPrimary)
+
+                        Text("Aquí aparecerán las rutas que completes")
+                            .font(ACTypography.bodySmall)
+                            .foregroundColor(ACColors.textSecondary)
+                    }
+
+                    Spacer()
+                }
+                .padding(ACSpacing.cardPadding)
+                .background(ACColors.surface)
+                .cornerRadius(ACRadius.lg)
+                .acShadow(ACShadow.sm)
+                .padding(.horizontal, ACSpacing.containerPadding)
+            }
         }
     }
 
