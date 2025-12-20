@@ -36,23 +36,40 @@ class ImageCacheService: ImageCacheServiceProtocol {
 
     // MARK: - Public Methods
 
-    /// Obtiene una imagen de la caché (memoria o disco)
+    /// Obtiene una imagen de la caché en memoria (síncrono, rápido)
     func getImage(for url: URL) -> UIImage? {
         let key = cacheKey(for: url)
 
-        // Primero buscar en memoria
+        // Solo buscar en memoria (operación rápida)
+        return memoryCache.object(forKey: key as NSString)
+    }
+
+    /// Obtiene una imagen de la caché (memoria o disco) de forma asíncrona
+    func getImageAsync(for url: URL) async -> UIImage? {
+        let key = cacheKey(for: url)
+
+        // Primero buscar en memoria (rápido)
         if let cachedImage = memoryCache.object(forKey: key as NSString) {
             return cachedImage
         }
 
-        // Luego buscar en disco
-        if let diskImage = loadFromDisk(key: key) {
-            // Guardar en memoria para acceso más rápido
-            memoryCache.setObject(diskImage, forKey: key as NSString)
-            return diskImage
-        }
+        // Buscar en disco en background
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else {
+                    continuation.resume(returning: nil)
+                    return
+                }
 
-        return nil
+                if let diskImage = self.loadFromDisk(key: key) {
+                    // Guardar en memoria para acceso más rápido
+                    self.memoryCache.setObject(diskImage, forKey: key as NSString)
+                    continuation.resume(returning: diskImage)
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
     }
 
     /// Guarda una imagen en la caché (memoria y disco)
@@ -68,10 +85,10 @@ class ImageCacheService: ImageCacheServiceProtocol {
         }
     }
 
-    /// Descarga una imagen con caché
+    /// Descarga una imagen con caché (async)
     func loadImage(from url: URL) async -> UIImage? {
-        // Verificar caché primero
-        if let cached = getImage(for: url) {
+        // Verificar caché primero (memoria y disco, async)
+        if let cached = await getImageAsync(for: url) {
             return cached
         }
 

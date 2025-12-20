@@ -296,6 +296,7 @@ protocol AudioPreviewServiceProtocol: ObservableObject {
 /// Protocolo para servicios de caché de imágenes
 protocol ImageCacheServiceProtocol {
     func getImage(for url: URL) -> UIImage?
+    func getImageAsync(for url: URL) async -> UIImage?
     func saveImage(_ image: UIImage, for url: URL)
     func loadImage(from url: URL) async -> UIImage?
     func clearCache()
