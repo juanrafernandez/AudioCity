@@ -37,7 +37,7 @@ struct ProfileView: View {
                 .padding(.top, ACSpacing.base)
             }
             .background(ACColors.background)
-            .navigationTitle("Perfil")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingPointsHistory) {
                 PointsHistoryView()

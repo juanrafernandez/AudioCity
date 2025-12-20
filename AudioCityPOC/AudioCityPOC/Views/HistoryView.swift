@@ -21,7 +21,7 @@ struct HistoryView: View {
                 }
             }
             .background(ACColors.background)
-            .navigationTitle("Historial")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if !historyService.history.isEmpty {

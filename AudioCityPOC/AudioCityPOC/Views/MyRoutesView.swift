@@ -22,7 +22,7 @@ struct MyRoutesView: View {
                 }
             }
             .background(ACColors.background)
-            .navigationTitle("Crear")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
