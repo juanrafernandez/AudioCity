@@ -2,14 +2,6 @@
 //  FirebaseService.swift
 //  AudioCityPOC
 //
-//  Created by JuanRa Fernandez on 23/11/25.
-//
-
-
-//
-//  FirebaseService.swift
-//  AudioCityPOC
-//
 //  Servicio para cargar datos desde Firebase Firestore
 //
 
@@ -46,13 +38,13 @@ class FirebaseService: ObservableObject, FirebaseServiceProtocol {
             
             // Decodificar ruta
             let route = try routeDoc.data(as: Route.self)
-            
-            print("✅ FirebaseService: Ruta cargada - \(route.name)")
+
+            Log("Ruta cargada - \(route.name)", level: .success, category: .firebase)
             return route
-            
+
         } catch {
             errorMessage = error.localizedDescription
-            print("❌ FirebaseService: Error cargando ruta - \(error.localizedDescription)")
+            Log("Error cargando ruta - \(error.localizedDescription)", level: .error, category: .firebase)
             throw error
         }
     }
@@ -79,12 +71,12 @@ class FirebaseService: ObservableObject, FirebaseServiceProtocol {
             // Ordenar por campo 'order' en cliente
             stops.sort { $0.order < $1.order }
 
-            print("✅ FirebaseService: \(stops.count) paradas cargadas y ordenadas")
+            Log("\(stops.count) paradas cargadas y ordenadas", level: .success, category: .firebase)
             return stops
 
         } catch {
             errorMessage = error.localizedDescription
-            print("❌ FirebaseService: Error cargando paradas - \(error.localizedDescription)")
+            Log("Error cargando paradas - \(error.localizedDescription)", level: .error, category: .firebase)
             throw error
         }
     }
@@ -113,12 +105,12 @@ class FirebaseService: ObservableObject, FirebaseServiceProtocol {
                 try doc.data(as: Route.self)
             }
             
-            print("✅ FirebaseService: \(routes.count) rutas disponibles")
+            Log("\(routes.count) rutas disponibles", level: .success, category: .firebase)
             return routes
-            
+
         } catch {
             errorMessage = error.localizedDescription
-            print("❌ FirebaseService: Error cargando rutas - \(error.localizedDescription)")
+            Log("Error cargando rutas - \(error.localizedDescription)", level: .error, category: .firebase)
             throw error
         }
     }

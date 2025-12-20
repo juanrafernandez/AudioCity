@@ -85,7 +85,7 @@ class OfflineCacheService: ObservableObject {
             saveCachedRoutesList()
             calculateTotalCacheSize()
 
-            print("✅ OfflineCacheService: Viaje descargado - \(routes.count) rutas")
+            Log("Viaje descargado - \(routes.count) rutas", level: .success, category: .app)
 
         } catch {
             await MainActor.run {
@@ -131,7 +131,7 @@ class OfflineCacheService: ObservableObject {
         saveCachedRoutesList()
         calculateTotalCacheSize()
 
-        print("🗑️ OfflineCacheService: Caché eliminada para viaje - \(trip.destinationCity)")
+        Log("Caché eliminada para viaje - \(trip.destinationCity)", level: .info, category: .app)
     }
 
     /// Eliminar toda la caché
@@ -146,7 +146,7 @@ class OfflineCacheService: ObservableObject {
         createCacheDirectoryIfNeeded()
         totalCacheSize = 0
 
-        print("🗑️ OfflineCacheService: Toda la caché eliminada")
+        Log("Toda la caché eliminada", level: .info, category: .app)
     }
 
     /// Obtener tamaño de caché formateado
@@ -189,7 +189,7 @@ class OfflineCacheService: ObservableObject {
         // Esto requiere implementación específica según el proveedor de mapas
         // Por ahora marcamos la ruta como que tiene los datos básicos
 
-        print("💾 OfflineCacheService: Ruta guardada - \(cachedRoute.route.name)")
+        Log("Ruta guardada - \(cachedRoute.route.name)", level: .debug, category: .app)
     }
 
     private func deleteCachedRouteFiles(_ cachedRoute: CachedRoute) throws {
@@ -213,9 +213,9 @@ class OfflineCacheService: ObservableObject {
 
         do {
             cachedRoutes = try decoder.decode([CachedRoute].self, from: data)
-            print("✅ OfflineCacheService: \(cachedRoutes.count) rutas cargadas desde caché")
+            Log("\(cachedRoutes.count) rutas cargadas desde caché", level: .success, category: .app)
         } catch {
-            print("❌ OfflineCacheService: Error cargando rutas - \(error.localizedDescription)")
+            Log("Error cargando rutas - \(error.localizedDescription)", level: .error, category: .app)
             cachedRoutes = []
         }
     }
@@ -228,7 +228,7 @@ class OfflineCacheService: ObservableObject {
             let data = try encoder.encode(cachedRoutes)
             userDefaults.set(data, forKey: cachedRoutesKey)
         } catch {
-            print("❌ OfflineCacheService: Error guardando lista - \(error.localizedDescription)")
+            Log("Error guardando lista - \(error.localizedDescription)", level: .error, category: .app)
         }
     }
 

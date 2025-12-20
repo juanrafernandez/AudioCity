@@ -40,7 +40,7 @@ class HistoryService: ObservableObject {
         history.insert(record, at: 0) // Añadir al principio
         saveHistory()
 
-        print("✅ HistoryService: Ruta iniciada - \(routeName)")
+        Log("Ruta iniciada - \(routeName)", level: .success, category: .route)
         return record
     }
 
@@ -86,7 +86,7 @@ class HistoryService: ObservableObject {
             routeName: history[index].routeName
         )
 
-        print("✅ HistoryService: Ruta completada - \(history[index].routeName)")
+        Log("Ruta completada - \(history[index].routeName)", level: .success, category: .route)
     }
 
     /// Cancelar/abandonar una ruta en curso
@@ -100,21 +100,21 @@ class HistoryService: ObservableObject {
         history[index].durationMinutes = Int(elapsed / 60)
 
         saveHistory()
-        print("⚠️ HistoryService: Ruta abandonada - \(history[index].routeName)")
+        Log("Ruta abandonada - \(history[index].routeName)", level: .warning, category: .route)
     }
 
     /// Eliminar registro del historial
     func deleteRecord(_ historyId: String) {
         history.removeAll { $0.id == historyId }
         saveHistory()
-        print("🗑️ HistoryService: Registro eliminado")
+        Log("Registro eliminado", level: .info, category: .route)
     }
 
     /// Limpiar todo el historial
     func clearHistory() {
         history.removeAll()
         saveHistory()
-        print("🗑️ HistoryService: Historial limpiado")
+        Log("Historial limpiado", level: .info, category: .route)
     }
 
     /// Obtener historial por fecha (agrupado)
@@ -153,9 +153,9 @@ class HistoryService: ObservableObject {
     private func loadHistory() {
         do {
             history = try repository.loadHistory()
-            print("✅ HistoryService: \(history.count) registros cargados")
+            Log("\(history.count) registros cargados", level: .success, category: .route)
         } catch {
-            print("❌ HistoryService: Error cargando historial - \(error.localizedDescription)")
+            Log("Error cargando historial - \(error.localizedDescription)", level: .error, category: .route)
             history = []
         }
     }
@@ -164,7 +164,7 @@ class HistoryService: ObservableObject {
         do {
             try repository.saveHistory(history)
         } catch {
-            print("❌ HistoryService: Error guardando historial - \(error.localizedDescription)")
+            Log("Error guardando historial - \(error.localizedDescription)", level: .error, category: .route)
         }
     }
 }
