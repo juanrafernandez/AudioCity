@@ -45,7 +45,7 @@ class TripService: ObservableObject {
     ) -> Trip? {
         // Validar que no exista un viaje duplicado (mismo destino + mismas fechas)
         if tripExists(city: destinationCity, startDate: startDate, endDate: endDate) {
-            print("⚠️ TripService: Ya existe un viaje a \(destinationCity) con esas fechas")
+            Log("Ya existe un viaje a \(destinationCity) con esas fechas", level: .warning, category: .app)
             return nil
         }
 
@@ -59,7 +59,7 @@ class TripService: ObservableObject {
         trips.append(trip)
         saveTrips()
 
-        print("✅ TripService: Viaje creado - \(destinationCity)")
+        Log("Viaje creado - \(destinationCity)", level: .success, category: .app)
         return trip
     }
 
@@ -88,14 +88,14 @@ class TripService: ObservableObject {
     /// Añadir ruta a un viaje
     func addRoute(_ routeId: String, to tripId: String) {
         guard let index = trips.firstIndex(where: { $0.id == tripId }) else {
-            print("❌ TripService: Viaje no encontrado - \(tripId)")
+            Log("Viaje no encontrado - \(tripId)", level: .error, category: .app)
             return
         }
 
         if !trips[index].selectedRouteIds.contains(routeId) {
             trips[index].selectedRouteIds.append(routeId)
             saveTrips()
-            print("✅ TripService: Ruta añadida al viaje")
+            Log("Ruta añadida al viaje", level: .success, category: .app)
         }
     }
 
@@ -107,14 +107,14 @@ class TripService: ObservableObject {
 
         trips[index].selectedRouteIds.removeAll { $0 == routeId }
         saveTrips()
-        print("✅ TripService: Ruta eliminada del viaje")
+        Log("Ruta eliminada del viaje", level: .success, category: .app)
     }
 
     /// Eliminar un viaje
     func deleteTrip(_ tripId: String) {
         trips.removeAll { $0.id == tripId }
         saveTrips()
-        print("🗑️ TripService: Viaje eliminado")
+        Log("Viaje eliminado", level: .info, category: .app)
     }
 
     /// Actualizar fechas de un viaje
@@ -195,14 +195,14 @@ class TripService: ObservableObject {
             await MainActor.run {
                 self.availableDestinations = destinations
                 self.isLoading = false
-                print("✅ TripService: \(destinations.count) destinos disponibles")
+                Log("\(destinations.count) destinos disponibles", level: .success, category: .app)
             }
 
         } catch {
             await MainActor.run {
                 self.errorMessage = error.localizedDescription
                 self.isLoading = false
-                print("❌ TripService: Error cargando destinos - \(error.localizedDescription)")
+                Log("Error cargando destinos - \(error.localizedDescription)", level: .error, category: .app)
             }
         }
     }
@@ -212,9 +212,9 @@ class TripService: ObservableObject {
     private func loadTrips() {
         do {
             trips = try repository.loadTrips()
-            print("✅ TripService: \(trips.count) viajes cargados")
+            Log("\(trips.count) viajes cargados", level: .success, category: .app)
         } catch {
-            print("❌ TripService: Error cargando viajes - \(error.localizedDescription)")
+            Log("Error cargando viajes - \(error.localizedDescription)", level: .error, category: .app)
             trips = []
         }
     }
@@ -223,7 +223,7 @@ class TripService: ObservableObject {
         do {
             try repository.saveTrips(trips)
         } catch {
-            print("❌ TripService: Error guardando viajes - \(error.localizedDescription)")
+            Log("Error guardando viajes - \(error.localizedDescription)", level: .error, category: .app)
         }
     }
 }

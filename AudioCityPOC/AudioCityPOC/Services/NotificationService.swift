@@ -75,12 +75,12 @@ class NotificationService: NSObject, ObservableObject, NotificationServiceProtoc
             DispatchQueue.main.async {
                 self?.isAuthorized = granted
                 if granted {
-                    print("✅ NotificationService: Permisos concedidos")
+                    Log("Permisos de notificación concedidos", level: .success, category: .app)
                 } else {
-                    print("❌ NotificationService: Permisos denegados")
+                    Log("Permisos de notificación denegados", level: .warning, category: .app)
                 }
                 if let error = error {
-                    print("❌ NotificationService: Error - \(error.localizedDescription)")
+                    Log("Error de notificaciones - \(error.localizedDescription)", level: .error, category: .app)
                 }
             }
         }
@@ -126,9 +126,9 @@ class NotificationService: NSObject, ObservableObject, NotificationServiceProtoc
         // Programar notificación
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("❌ NotificationService: Error programando notificación - \(error.localizedDescription)")
+                Log("Error programando notificación - \(error.localizedDescription)", level: .error, category: .app)
             } else {
-                print("🔔 NotificationService: Notificación programada para - \(stop.name)")
+                Log("Notificación programada para - \(stop.name)", level: .info, category: .app)
             }
         }
     }
@@ -136,7 +136,7 @@ class NotificationService: NSObject, ObservableObject, NotificationServiceProtoc
     /// Cancelar todas las notificaciones pendientes
     func cancelAllPendingNotifications() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-        print("🔔 NotificationService: Notificaciones pendientes canceladas")
+        Log("Notificaciones pendientes canceladas", level: .info, category: .app)
     }
 
     /// Cancelar notificación de una parada específica
@@ -174,7 +174,7 @@ class NotificationService: NSObject, ObservableObject, NotificationServiceProtoc
                 )
                 content.attachments = [attachment]
             } catch {
-                print("❌ NotificationService: Error adjuntando imagen - \(error.localizedDescription)")
+                Log("Error adjuntando imagen - \(error.localizedDescription)", level: .error, category: .app)
             }
         }.resume()
     }
@@ -203,14 +203,14 @@ extension NotificationService: UNUserNotificationCenterDelegate {
 
         switch response.actionIdentifier {
         case listenActionIdentifier:
-            print("🎵 NotificationService: Usuario eligió ESCUCHAR - \(stopId ?? "unknown")")
+            Log("Usuario eligió ESCUCHAR - \(stopId ?? "unknown")", level: .info, category: .app)
             DispatchQueue.main.async {
                 self.lastActionStopId = stopId
                 self.lastAction = .listen
             }
 
         case skipActionIdentifier:
-            print("⏭️ NotificationService: Usuario eligió SALTAR - \(stopId ?? "unknown")")
+            Log("Usuario eligió SALTAR - \(stopId ?? "unknown")", level: .info, category: .app)
             DispatchQueue.main.async {
                 self.lastActionStopId = stopId
                 self.lastAction = .skip
@@ -218,7 +218,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
 
         case UNNotificationDefaultActionIdentifier:
             // Usuario tocó la notificación (sin botón específico)
-            print("🔔 NotificationService: Usuario tocó notificación - \(stopId ?? "unknown")")
+            Log("Usuario tocó notificación - \(stopId ?? "unknown")", level: .info, category: .app)
             DispatchQueue.main.async {
                 self.lastActionStopId = stopId
                 self.lastAction = .listen

@@ -42,14 +42,14 @@ class UserRoutesService: ObservableObject {
         userRoutes.append(route)
         saveRoutes()
 
-        print("✅ UserRoutesService: Ruta creada - \(name)")
+        Log("Ruta creada - \(name)", level: .success, category: .route)
         return route
     }
 
     /// Actualizar una ruta existente
     func updateRoute(_ route: UserRoute) {
         guard let index = userRoutes.firstIndex(where: { $0.id == route.id }) else {
-            print("❌ UserRoutesService: Ruta no encontrada - \(route.id)")
+            Log("Ruta no encontrada - \(route.id)", level: .error, category: .route)
             return
         }
 
@@ -61,14 +61,14 @@ class UserRoutesService: ObservableObject {
         userRoutes[index] = updatedRoute
         saveRoutes()
 
-        print("✅ UserRoutesService: Ruta actualizada - \(route.name)")
+        Log("Ruta actualizada - \(route.name)", level: .success, category: .route)
     }
 
     /// Eliminar una ruta
     func deleteRoute(_ routeId: String) {
         userRoutes.removeAll { $0.id == routeId }
         saveRoutes()
-        print("🗑️ UserRoutesService: Ruta eliminada")
+        Log("Ruta eliminada", level: .info, category: .route)
     }
 
     /// Añadir parada a una ruta
@@ -107,7 +107,7 @@ class UserRoutesService: ObservableObject {
             )
         }
 
-        print("✅ UserRoutesService: Parada añadida - \(stop.name)")
+        Log("Parada añadida - \(stop.name)", level: .success, category: .route)
     }
 
     /// Eliminar parada de una ruta
@@ -128,7 +128,7 @@ class UserRoutesService: ObservableObject {
         userRoutes[routeIndex].estimateDuration()
 
         saveRoutes()
-        print("✅ UserRoutesService: Parada eliminada")
+        Log("Parada eliminada", level: .info, category: .route)
     }
 
     /// Reordenar paradas
@@ -173,7 +173,7 @@ class UserRoutesService: ObservableObject {
         }
 
         let status = userRoutes[index].isPublished ? "publicada" : "despublicada"
-        print("✅ UserRoutesService: Ruta \(status)")
+        Log("Ruta \(status)", level: .success, category: .route)
     }
 
     // MARK: - Private Methods
@@ -189,9 +189,9 @@ class UserRoutesService: ObservableObject {
 
         do {
             userRoutes = try decoder.decode([UserRoute].self, from: data)
-            print("✅ UserRoutesService: \(userRoutes.count) rutas cargadas")
+            Log("\(userRoutes.count) rutas de usuario cargadas", level: .success, category: .route)
         } catch {
-            print("❌ UserRoutesService: Error cargando rutas - \(error.localizedDescription)")
+            Log("Error cargando rutas de usuario - \(error.localizedDescription)", level: .error, category: .route)
             userRoutes = []
         }
     }
@@ -204,7 +204,7 @@ class UserRoutesService: ObservableObject {
             let data = try encoder.encode(userRoutes)
             userDefaults.set(data, forKey: routesKey)
         } catch {
-            print("❌ UserRoutesService: Error guardando rutas - \(error.localizedDescription)")
+            Log("Error guardando rutas de usuario - \(error.localizedDescription)", level: .error, category: .route)
         }
     }
 }
