@@ -2,29 +2,33 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CLIENT_ID</key>
+	<string>YOUR_CLIENT_ID.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.YOUR_CLIENT_ID</string>
 	<key>API_KEY</key>
-	<string>AIzaSyCv0xGJLu5Zzd22oVZ7_ect938BZD7x0jM</string>
+	<string>YOUR_API_KEY</string>
 	<key>GCM_SENDER_ID</key>
-	<string>294754708542</string>
+	<string>YOUR_SENDER_ID</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.audiocity.poc</string>
 	<key>PROJECT_ID</key>
-	<string>audiocity-poc</string>
+	<string>your-project-id</string>
 	<key>STORAGE_BUCKET</key>
-	<string>audiocity-poc.firebasestorage.app</string>
+	<string>your-project-id.appspot.com</string>
 	<key>IS_ADS_ENABLED</key>
-	<false></false>
+	<false/>
 	<key>IS_ANALYTICS_ENABLED</key>
-	<false></false>
+	<false/>
 	<key>IS_APPINVITE_ENABLED</key>
-	<true></true>
+	<true/>
 	<key>IS_GCM_ENABLED</key>
-	<true></true>
+	<true/>
 	<key>IS_SIGNIN_ENABLED</key>
-	<true></true>
+	<true/>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:294754708542:ios:fba0496a36a6e580c5b56f</string>
+	<string>1:YOUR_APP_ID:ios:YOUR_IOS_ID</string>
 </dict>
 </plist>

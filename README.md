@@ -968,6 +968,43 @@ Brand Blue Dark: #1E47D9 (para dark mode)
 
 ---
 
+## 🔧 Setup de Desarrollo
+
+### Prerequisitos
+- Xcode 15.0+
+- iOS 16.0+ deployment target
+- Firebase account
+
+### Configuración Inicial
+
+1. **Firebase Credentials:**
+   ```bash
+   # Copiar la plantilla
+   cp AudioCityPOC/AudioCityPOC/GoogleService-Info.plist.template AudioCityPOC/AudioCityPOC/GoogleService-Info.plist
+
+   # Editar con tus credenciales de Firebase
+   # Obtener desde: https://console.firebase.google.com/
+   ```
+
+2. **Instalación:**
+   ```bash
+   # Abrir el proyecto
+   open AudioCityPOC/AudioCityPOC.xcodeproj
+
+   # Build el proyecto (⌘+B)
+   ```
+
+3. **Verificar:**
+   - El archivo `GoogleService-Info.plist` NO debe aparecer en git
+   - Verificar con: `git status` (no debe listarse)
+
+### ⚠️ NUNCA COMMITEAR:
+- `GoogleService-Info.plist`
+- `firebase-credentials.json`
+- Archivos en `/snapshots/`
+
+---
+
 ## Licencia
 
 Proyecto privado - AudioCity POC

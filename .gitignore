@@ -1,0 +1,74 @@
+# Firebase Credentials
+**/GoogleService-Info.plist
+firebase-credentials.json
+firebase-adminsdk-*.json
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+Secrets.plist
+secrets.xcconfig
+
+# Build folders
+DerivedData/
+build/
+*.xcarchive
+
+# Xcode User State
+*.xcuserstate
+*.xcuserdatad
+xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Snapshots and Screenshots
+snapshots/
+screenshots/
+*.png
+*.jpg
+*.jpeg
+# Exception: keep assets
+!Assets.xcassets/**/*.png
+!Assets.xcassets/**/*.jpg
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear on external disk
+.Spotlight-V100
+.Trashes
+
+# Pods (if using CocoaPods)
+Pods/
+*.xcworkspace
+
+# Carthage
+Carthage/Build/
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code coverage
+*.gcda
+*.gcno
+*.profdata
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Temporary files
+tmp/
