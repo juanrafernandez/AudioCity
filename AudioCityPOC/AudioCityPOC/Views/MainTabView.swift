@@ -154,7 +154,7 @@ struct MainTabView: View {
                 .filter { $0 == true }
                 .receive(on: DispatchQueue.main)
                 .sink { _ in
-                    print("🎯 MainTabView: isRouteReady cambió a true")
+                    Log("isRouteReady cambió a true", level: .debug, category: .route)
 
                     // Centrar el mapa en la ruta ANTES de cerrar
                     centerExploreMapOnActiveRoute()
@@ -228,7 +228,7 @@ struct MainTabView: View {
         ExploreViewModel.shared.activeRouteCameraPosition = .region(region)
         ExploreViewModel.shared.hasPositionedActiveRoute = true
 
-        print("🗺️ MainTabView: Mapa centrado en ruta activa")
+        Log("Mapa centrado en ruta activa", level: .debug, category: .route)
     }
 
     /// Verificar si hay una ruta activa guardada
@@ -236,7 +236,7 @@ struct MainTabView: View {
         if let state = activeRouteViewModel.getActiveRouteState() {
             savedRouteState = state
             showContinueRouteAlert = true
-            print("🔔 MainTabView: Ruta activa encontrada - \(state.routeName)")
+            Log("Ruta activa encontrada - \(state.routeName)", level: .info, category: .route)
         }
     }
 
@@ -252,7 +252,7 @@ struct MainTabView: View {
                 activeRouteViewModel.startRoute(optimized: false)
             } else {
                 isRestoringRoute = false
-                print("❌ MainTabView: Error restaurando ruta")
+                Log("Error restaurando ruta", level: .error, category: .route)
             }
         }
     }

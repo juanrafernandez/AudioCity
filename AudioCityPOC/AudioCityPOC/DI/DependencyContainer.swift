@@ -52,7 +52,7 @@ final class DependencyContainer: ObservableObject {
     // MARK: - Initialization
 
     private init() {
-        print("🏗️ DependencyContainer: Inicializado")
+        Log("DependencyContainer inicializado", level: .debug, category: .app)
     }
 
     // MARK: - Factory Methods
@@ -74,7 +74,7 @@ final class DependencyContainer: ObservableObject {
     func reset() {
         // Crear nuevas instancias
         // Nota: En producción, esto no debería llamarse
-        print("🏗️ DependencyContainer: Reset (solo para tests)")
+        Log("DependencyContainer reset (solo para tests)", level: .warning, category: .app)
     }
 }
 

@@ -223,12 +223,12 @@ struct MapExploreView: View {
         }
         .onChange(of: activeRouteViewModel?.isRouteActive) { _, isActive in
             if isActive == true {
-                print("🗺️ Ruta activada, esperando polylines...")
+                Log("Ruta activada, esperando polylines...", level: .debug, category: .route)
             }
         }
         .onChange(of: activeRouteViewModel?.routePolylines.count ?? 0) { _, count in
             if count > 0 && hasActiveRoute {
-                print("🗺️ Polylines listos (\(count)), centrando mapa...")
+                Log("Polylines listos (\(count)), centrando mapa...", level: .debug, category: .route)
                 // Pequeño delay para asegurar que el mapa está renderizado
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     centerMapOnRoute()
@@ -262,7 +262,7 @@ struct MapExploreView: View {
 
         search.start { response, error in
             guard let coordinate = response?.mapItems.first?.placemark.coordinate else {
-                print("❌ No se pudo encontrar la ubicación")
+                Log("No se pudo encontrar la ubicación", level: .warning, category: .location)
                 return
             }
 
@@ -280,7 +280,7 @@ struct MapExploreView: View {
                 searchResults = []
                 isSearching = false
 
-                print("📍 Mapa centrado en: \(result.title)")
+                Log("Mapa centrado en: \(result.title)", level: .info, category: .location)
             }
         }
     }
@@ -368,7 +368,7 @@ struct MapExploreView: View {
         .onAppear {
             // Log para debug
             if let vm = activeRouteViewModel {
-                print("🗺️ ActiveRouteMap: \(vm.routePolylines.count) polylines, \(activeRouteStops.count) paradas")
+                Log("ActiveRouteMap: \(vm.routePolylines.count) polylines, \(activeRouteStops.count) paradas", level: .debug, category: .route)
             }
 
             // Centrar el mapa en la ruta cuando aparece
@@ -414,7 +414,7 @@ struct MapExploreView: View {
         viewModel.activeRouteCameraPosition = .region(MKCoordinateRegion(center: center, span: span))
         viewModel.hasPositionedActiveRoute = true
 
-        print("🗺️ Mapa centrado en ruta: \(center.latitude), \(center.longitude)")
+        Log("Mapa centrado en ruta: \(center.latitude), \(center.longitude)", level: .debug, category: .route)
     }
 
     // MARK: - Active Route Overlay
@@ -614,7 +614,7 @@ struct MapExploreView: View {
                 from: userLocation.coordinate,
                 to: next.coordinate
             )
-            print("📍 MapExploreView: Distancia actualizada a \(next.name)")
+            Log("Distancia actualizada a \(next.name)", level: .debug, category: .location)
         }
     }
 }
@@ -918,7 +918,7 @@ class SearchCompleterDelegate: NSObject, ObservableObject, MKLocalSearchComplete
     }
 
     func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
-        print("❌ Error en búsqueda: \(error.localizedDescription)")
+        Log("Error en búsqueda: \(error.localizedDescription)", level: .error, category: .location)
     }
 }
 

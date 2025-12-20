@@ -43,7 +43,7 @@ class GeofenceService: ObservableObject, GeofenceServiceProtocol {
             }
             .store(in: &cancellables)
         
-        print("🎯 GeofenceService: Monitoreando \(stops.count) paradas")
+        Log("Monitoreando \(stops.count) paradas", level: .info, category: .location)
     }
     
     /// Limpiar geofences
@@ -53,7 +53,7 @@ class GeofenceService: ObservableObject, GeofenceServiceProtocol {
         triggeredStop = nil
         triggeredStops.removeAll()
         cancellables.removeAll()
-        print("🎯 GeofenceService: Geofences limpiados")
+        Log("Geofences limpiados", level: .debug, category: .location)
     }
     
     // MARK: - Private Methods
@@ -74,7 +74,7 @@ class GeofenceService: ObservableObject, GeofenceServiceProtocol {
             // Si entramos en el radio de trigger
             if distance <= stop.triggerRadiusMeters {
                 newlyTriggeredStops.append(stop)
-                print("🎯 GeofenceService: Parada en rango - \(stop.name) (distancia: \(Int(distance))m)")
+                Log("Parada en rango - \(stop.name) (distancia: \(Int(distance))m)", level: .debug, category: .location)
             }
         }
 
@@ -121,7 +121,7 @@ class GeofenceService: ObservableObject, GeofenceServiceProtocol {
             // Mantener compatibilidad: triggeredStop es la última activada
             self.triggeredStop = visitedStop
 
-            print("🎯 GeofenceService: Parada activada - \(stop.name) (distancia: \(Int(distance))m)")
+            Log("Parada activada - \(stop.name) (distancia: \(Int(distance))m)", level: .success, category: .location)
         }
     }
     

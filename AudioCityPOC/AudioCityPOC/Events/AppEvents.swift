@@ -65,7 +65,7 @@ final class EventBus {
 
     // MARK: - Initialization
     private init() {
-        print("📡 EventBus: Inicializado")
+        Log("EventBus inicializado", level: .debug, category: .app)
     }
 
     // MARK: - Convenience Methods
@@ -73,19 +73,19 @@ final class EventBus {
     /// Publicar que una ruta fue completada
     func publishRouteCompleted(routeId: String, routeName: String) {
         routeEvents.send(.routeCompleted(routeId: routeId, routeName: routeName))
-        print("📡 EventBus: Evento routeCompleted publicado - \(routeName)")
+        Log("Evento routeCompleted publicado - \(routeName)", level: .debug, category: .app)
     }
 
     /// Publicar que se otorgaron puntos
     func publishPointsAwarded(points: Int, reason: String) {
         pointsEvents.send(.pointsAwarded(points: points, reason: reason))
-        print("📡 EventBus: Evento pointsAwarded publicado - \(points) pts por \(reason)")
+        Log("Evento pointsAwarded publicado - \(points) pts por \(reason)", level: .debug, category: .points)
     }
 
     /// Publicar subida de nivel
     func publishLevelUp(newLevel: Int, levelName: String) {
         pointsEvents.send(.levelUp(newLevel: newLevel, levelName: levelName))
-        print("📡 EventBus: Evento levelUp publicado - Nivel \(newLevel) (\(levelName))")
+        Log("Evento levelUp publicado - Nivel \(newLevel) (\(levelName))", level: .info, category: .points)
     }
 }
 

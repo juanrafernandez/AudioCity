@@ -56,6 +56,6 @@ struct ErrorView: View {
 
 #Preview {
     ErrorView(message: "No se pudo cargar la ruta. Verifica tu conexión a internet.") {
-        print("Retry tapped")
+        Log("Retry tapped", level: .debug, category: .app)
     }
 }

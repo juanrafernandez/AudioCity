@@ -31,7 +31,7 @@ class ImageCacheService {
         // Crear directorio si no existe
         try? FileManager.default.createDirectory(at: diskCacheURL, withIntermediateDirectories: true)
 
-        print("📦 ImageCacheService: Inicializado en \(diskCacheURL.path)")
+        Log("ImageCacheService inicializado en \(diskCacheURL.path)", level: .debug, category: .app)
     }
 
     // MARK: - Public Methods
@@ -83,7 +83,7 @@ class ImageCacheService {
                 return image
             }
         } catch {
-            print("❌ ImageCacheService: Error descargando imagen - \(error.localizedDescription)")
+            Log("Error descargando imagen - \(error.localizedDescription)", level: .error, category: .app)
         }
 
         return nil
@@ -98,7 +98,7 @@ class ImageCacheService {
         try? FileManager.default.removeItem(at: diskCacheURL)
         try? FileManager.default.createDirectory(at: diskCacheURL, withIntermediateDirectories: true)
 
-        print("🗑️ ImageCacheService: Caché limpiada")
+        Log("Caché de imágenes limpiada", level: .info, category: .app)
     }
 
     /// Tamaño de la caché en disco

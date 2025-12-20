@@ -643,7 +643,7 @@ struct RouteDetailContentV2: View {
 
             guard let userLocation = location else {
                 // Sin ubicación, iniciar directamente sin optimizar
-                print("⚠️ No se pudo obtener ubicación, iniciando sin optimización")
+                Log("No se pudo obtener ubicación, iniciando sin optimización", level: .warning, category: .location)
                 onStartRouteDirectly?()
                 viewModel.startRoute(optimized: false)
                 return
@@ -973,7 +973,7 @@ class RouteDistanceCalculator: ObservableObject {
                     if completedSegments == totalSegments {
                         self.totalDistance = self.segmentDistances.reduce(0, +)
                         self.isCalculating = false
-                        print("📏 Distancia total calculada: \(self.formattedDistance) \(self.distanceUnit)")
+                        Log("Distancia total calculada: \(self.formattedDistance) \(self.distanceUnit)", level: .debug, category: .route)
                     }
                 }
             }

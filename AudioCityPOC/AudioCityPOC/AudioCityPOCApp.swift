@@ -16,7 +16,7 @@ struct AudioCityPOCApp: App {
     init() {
         // Configurar Firebase
         FirebaseApp.configure()
-        print("✅ Firebase configurado")
+        Log("Firebase configurado", level: .success, category: .firebase)
 
         // Configurar apariencia de navegación para asegurar contraste correcto
         configureNavigationBarAppearance()
@@ -43,7 +43,7 @@ struct AudioCityPOCApp: App {
                 .onChange(of: scenePhase) { oldPhase, newPhase in
                     if newPhase == .background {
                         // La app pasa a background - terminar Live Activity
-                        print("📱 App en background - cerrando Live Activity")
+                        Log("App en background - cerrando Live Activity", level: .info, category: .app)
                         LiveActivityServiceWrapper.shared.endActivity()
                     }
                 }
