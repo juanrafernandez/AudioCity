@@ -22,7 +22,7 @@ final class DependencyContainer: ObservableObject {
     // MARK: - Singleton
     static let shared = DependencyContainer()
 
-    // MARK: - Services (lazy initialization)
+    // MARK: - Core Services (lazy initialization)
 
     /// Servicio de ubicación
     private(set) lazy var locationService: LocationService = {
@@ -44,10 +44,62 @@ final class DependencyContainer: ObservableObject {
         GeofenceService()
     }()
 
-    /// Servicio de notificaciones (ya es singleton)
+    /// Servicio de notificaciones (singleton)
     var notificationService: NotificationService {
         NotificationService.shared
     }
+
+    // MARK: - Additional Services
+
+    /// Servicio de viajes (singleton)
+    var tripService: TripService {
+        TripService.shared
+    }
+
+    /// Servicio de puntos/gamificación (singleton)
+    var pointsService: PointsService {
+        PointsService.shared
+    }
+
+    /// Servicio de historial (singleton)
+    var historyService: HistoryService {
+        HistoryService.shared
+    }
+
+    /// Servicio de rutas de usuario (singleton)
+    var userRoutesService: UserRoutesService {
+        UserRoutesService.shared
+    }
+
+    /// Servicio de preview de audio (singleton)
+    var audioPreviewService: AudioPreviewService {
+        AudioPreviewService.shared
+    }
+
+    /// Servicio de caché de imágenes (singleton)
+    var imageCacheService: ImageCacheService {
+        ImageCacheService.shared
+    }
+
+    /// Servicio de favoritos (nueva instancia)
+    private(set) lazy var favoritesService: FavoritesService = {
+        FavoritesService()
+    }()
+
+    /// Servicio de caché offline (nueva instancia)
+    private(set) lazy var offlineCacheService: OfflineCacheService = {
+        OfflineCacheService()
+    }()
+
+    /// Servicio de cálculo de rutas
+    private(set) lazy var routeCalculationService: RouteCalculationService = {
+        RouteCalculationService()
+    }()
+
+    /// Servicio de optimización de rutas
+    private(set) lazy var routeOptimizationService: RouteOptimizationService = {
+        RouteOptimizationService()
+    }()
 
     // MARK: - Initialization
 

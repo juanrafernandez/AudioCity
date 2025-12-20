@@ -39,10 +39,10 @@ class ExploreViewModel: ObservableObject {
     var hasCenteredOnUser = false
     var hasPositionedActiveRoute = false
 
-    // MARK: - Services
-    let firebaseService = FirebaseService()
-    let locationService = LocationService()
-    let audioService = AudioService()
+    // MARK: - Services (from DependencyContainer to avoid duplicate instances)
+    var firebaseService: FirebaseService { DependencyContainer.shared.firebaseService }
+    var locationService: LocationService { DependencyContainer.shared.locationService }
+    var audioService: AudioService { DependencyContainer.shared.audioService }
 
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
