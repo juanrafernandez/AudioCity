@@ -56,7 +56,7 @@ struct RoutesListView: View {
                 }
             }
             .navigationTitle(viewModel.currentRoute?.name ?? "Rutas")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if viewModel.currentRoute != nil && !viewModel.isRouteActive {
                     ToolbarItem(placement: .navigationBarLeading) {

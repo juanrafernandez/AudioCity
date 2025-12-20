@@ -23,7 +23,7 @@ struct MyRoutesView: View {
             }
             .background(ACColors.background)
             .navigationTitle("Crear")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingCreateRoute = true }) {
