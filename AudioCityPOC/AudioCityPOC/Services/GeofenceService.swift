@@ -2,14 +2,6 @@
 //  GeofenceService.swift
 //  AudioCityPOC
 //
-//  Created by JuanRa Fernandez on 23/11/25.
-//
-
-
-//
-//  GeofenceService.swift
-//  AudioCityPOC
-//
 //  Servicio para detectar cuando el usuario entra en el radio de una parada
 //
 
