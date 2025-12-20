@@ -2,14 +2,6 @@
 //  AudioService.swift
 //  AudioCityPOC
 //
-//  Created by JuanRa Fernandez on 23/11/25.
-//
-
-
-//
-//  AudioService.swift
-//  AudioCityPOC
-//
 //  Servicio de Text-to-Speech usando AVSpeechSynthesizer
 //  Incluye cola de reproducción para puntos cercanos
 //
@@ -66,9 +58,9 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
                                         mode: .spokenAudio,
                                         options: [.duckOthers])
             try audioSession.setActive(true)
-            print("🔊 AudioService: Audio session configurada")
+            Log("Audio session configurada", level: .info, category: .audio)
         } catch {
-            print("❌ AudioService: Error configurando audio session - \(error.localizedDescription)")
+            Log("Error configurando audio session - \(error.localizedDescription)", level: .error, category: .audio)
         }
     }
 
@@ -84,10 +76,10 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         let voicesForLanguage = allVoices.filter { $0.language.hasPrefix(languagePrefix) }
 
         // Log todas las voces disponibles para el idioma
-        print("🎤 AudioService: Voces disponibles para '\(language)':")
+        Log("Voces disponibles para '\(language)': \(voicesForLanguage.count)", level: .debug, category: .audio)
         for voice in voicesForLanguage {
             let qualityName = voiceQualityName(voice.quality)
-            print("   - \(voice.name) (\(voice.language)) - Quality: \(qualityName)")
+            Log("   - \(voice.name) (\(voice.language)) - Quality: \(qualityName)", level: .debug, category: .audio)
         }
 
         // Buscar la mejor voz en orden de prioridad
@@ -95,7 +87,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         if let premiumVoice = voicesForLanguage.first(where: { $0.quality == .premium }) {
             cachedVoice = premiumVoice
             currentVoiceQuality = "Premium"
-            print("✨ AudioService: Usando voz PREMIUM: \(premiumVoice.name)")
+            Log("Usando voz PREMIUM: \(premiumVoice.name)", level: .success, category: .audio)
             return
         }
 
@@ -103,7 +95,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         if let enhancedVoice = voicesForLanguage.first(where: { $0.quality == .enhanced }) {
             cachedVoice = enhancedVoice
             currentVoiceQuality = "Enhanced"
-            print("⭐ AudioService: Usando voz ENHANCED: \(enhancedVoice.name)")
+            Log("Usando voz ENHANCED: \(enhancedVoice.name)", level: .success, category: .audio)
             return
         }
 
@@ -111,7 +103,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         if let exactMatch = voicesForLanguage.first(where: { $0.language == language }) {
             cachedVoice = exactMatch
             currentVoiceQuality = "Default"
-            print("📢 AudioService: Usando voz DEFAULT (coincidencia exacta): \(exactMatch.name)")
+            Log("Usando voz DEFAULT (coincidencia exacta): \(exactMatch.name)", level: .info, category: .audio)
             return
         }
 
@@ -119,14 +111,14 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         if let anyVoice = voicesForLanguage.first {
             cachedVoice = anyVoice
             currentVoiceQuality = "Default"
-            print("📢 AudioService: Usando voz DEFAULT: \(anyVoice.name)")
+            Log("Usando voz DEFAULT: \(anyVoice.name)", level: .info, category: .audio)
             return
         }
 
         // 5. Fallback al sistema
         cachedVoice = AVSpeechSynthesisVoice(language: language)
         currentVoiceQuality = "System"
-        print("⚠️ AudioService: Usando voz del SISTEMA para '\(language)'")
+        Log("Usando voz del SISTEMA para '\(language)'", level: .warning, category: .audio)
     }
 
     private func voiceQualityName(_ quality: AVSpeechSynthesisVoiceQuality) -> String {
@@ -184,7 +176,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         isPlaying = true
         isPaused = false
 
-        print("🔊 AudioService: Reproduciendo (\(currentVoiceQuality)) - '\(text.prefix(50))...'")
+        Log("Reproduciendo (\(currentVoiceQuality)) - '\(text.prefix(50))...'", level: .info, category: .audio)
     }
 
     // MARK: - Queue Methods
@@ -193,7 +185,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
     func enqueueStop(stopId: String, stopName: String, text: String, order: Int) {
         // Evitar duplicados
         guard !processedStopIds.contains(stopId) else {
-            print("🔊 AudioService: Parada \(stopName) ya está en cola o procesada")
+            Log("Parada \(stopName) ya está en cola o procesada", level: .debug, category: .audio)
             return
         }
 
@@ -213,7 +205,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         // Actualizar la lista publicada
         updateQueuedItems()
 
-        print("🔊 AudioService: Encolada parada '\(stopName)' (orden: \(order), cola: \(audioQueue.count))")
+        Log("Encolada parada '\(stopName)' (orden: \(order), cola: \(audioQueue.count))", level: .info, category: .audio)
 
         // Si no está reproduciendo, iniciar
         if !isPlaying && !isPaused {
@@ -224,7 +216,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
     /// Reproducir el siguiente item en la cola
     private func playNextInQueue(language: String = "es-ES") {
         guard !audioQueue.isEmpty else {
-            print("🔊 AudioService: Cola vacía")
+            Log("Cola vacía", level: .debug, category: .audio)
             currentQueueItem = nil
             return
         }
@@ -248,7 +240,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         isPlaying = true
         isPaused = false
 
-        print("🔊 AudioService: Reproduciendo parada '\(item.stopName)' (\(currentVoiceQuality)) - '\(item.text.prefix(50))...'")
+        Log("Reproduciendo parada '\(item.stopName)' (\(currentVoiceQuality))", level: .info, category: .audio)
     }
 
     /// Actualizar la lista de items en cola (para UI)
@@ -269,7 +261,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         processedStopIds.removeAll()
         currentQueueItem = nil
         updateQueuedItems()
-        print("🔊 AudioService: Cola limpiada")
+        Log("Cola limpiada", level: .info, category: .audio)
     }
 
     /// Saltar al siguiente item en la cola
@@ -285,7 +277,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         guard isPlaying, !isPaused else { return }
         synthesizer.pauseSpeaking(at: .word)
         isPaused = true
-        print("⏸️ AudioService: Pausado")
+        Log("Pausado", level: .debug, category: .audio)
     }
 
     /// Reanudar reproducción
@@ -293,7 +285,7 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         guard isPaused else { return }
         synthesizer.continueSpeaking()
         isPaused = false
-        print("▶️ AudioService: Reanudado")
+        Log("Reanudado", level: .debug, category: .audio)
     }
 
     /// Detener reproducción (mantiene la cola)
@@ -303,19 +295,19 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         isPaused = false
         currentText = nil
         currentQueueItem = nil
-        print("⏹️ AudioService: Detenido")
+        Log("Detenido", level: .debug, category: .audio)
     }
 
     /// Detener y limpiar todo
     func stopAndClear() {
         stop()
         clearQueue()
-        print("⏹️ AudioService: Detenido y cola limpiada")
+        Log("Detenido y cola limpiada", level: .info, category: .audio)
     }
 
     /// Saltar adelante 15 segundos (no aplicable en TTS, pero útil para UI)
     func skipForward() {
-        print("⏩ AudioService: Skip forward (no aplicable en TTS)")
+        Log("Skip forward (no aplicable en TTS)", level: .debug, category: .audio)
     }
 
     /// Saltar atrás 15 segundos
@@ -324,21 +316,21 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
         if let text = currentText {
             speak(text: text)
         }
-        print("⏪ AudioService: Reiniciando audio")
+        Log("Reiniciando audio", level: .debug, category: .audio)
     }
 }
 
 // MARK: - AVSpeechSynthesizerDelegate
 extension AudioService: AVSpeechSynthesizerDelegate {
-    
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, 
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                           didStart utterance: AVSpeechUtterance) {
         DispatchQueue.main.async {
             self.isPlaying = true
         }
-        print("🔊 AudioService: Reproducción iniciada")
+        Log("Reproducción iniciada", level: .debug, category: .audio)
     }
-    
+
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                           didFinish utterance: AVSpeechUtterance) {
         DispatchQueue.main.async {
@@ -348,31 +340,31 @@ extension AudioService: AVSpeechSynthesizerDelegate {
 
             // Reproducir siguiente en cola si hay más
             if !self.audioQueue.isEmpty {
-                print("✅ AudioService: Reproducción finalizada, continuando con siguiente en cola...")
+                Log("Reproducción finalizada, continuando con siguiente en cola...", level: .debug, category: .audio)
                 self.playNextInQueue()
             } else {
                 self.currentQueueItem = nil
-                print("✅ AudioService: Reproducción finalizada, cola vacía")
+                Log("Reproducción finalizada, cola vacía", level: .success, category: .audio)
             }
         }
     }
-    
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, 
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                           didPause utterance: AVSpeechUtterance) {
-        print("⏸️ AudioService: Pausado por sistema")
+        Log("Pausado por sistema", level: .debug, category: .audio)
     }
-    
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, 
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                           didContinue utterance: AVSpeechUtterance) {
-        print("▶️ AudioService: Reanudado por sistema")
+        Log("Reanudado por sistema", level: .debug, category: .audio)
     }
-    
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, 
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                           didCancel utterance: AVSpeechUtterance) {
         DispatchQueue.main.async {
             self.isPlaying = false
             self.isPaused = false
         }
-        print("❌ AudioService: Cancelado")
+        Log("Cancelado", level: .warning, category: .audio)
     }
 }

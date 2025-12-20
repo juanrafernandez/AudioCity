@@ -2,14 +2,6 @@
 //  LocationService.swift
 //  AudioCityPOC
 //
-//  Created by JuanRa Fernandez on 23/11/25.
-//
-
-
-//
-//  LocationService.swift
-//  AudioCityPOC
-//
 //  Servicio de geolocalización con soporte para background
 //  Incluye geofences nativos para despertar la app cuando está suspendida
 //
@@ -33,8 +25,8 @@ class LocationService: NSObject, ObservableObject, LocationServiceProtocol {
     private var monitoredRegions: [CLCircularRegion] = []
 
     // MARK: - Constants
-    private let geofencePrefix = "audiocity_stop_"
-    private let wakeUpRadius: CLLocationDistance = 100  // Radio amplio para wake-up
+    private let geofencePrefix = AppConstants.Geofencing.stopPrefix
+    private let wakeUpRadius: CLLocationDistance = AppConstants.Geofencing.wakeUpRadiusMeters
     
     // MARK: - Initialization
     override init() {
@@ -45,8 +37,8 @@ class LocationService: NSObject, ObservableObject, LocationServiceProtocol {
     // MARK: - Setup
     private func setupLocationManager() {
         locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = 5 // Actualizar cada 5 metros para mayor precisión
+        locationManager.desiredAccuracy = AppConstants.Location.desiredAccuracy
+        locationManager.distanceFilter = AppConstants.Location.distanceFilterMeters
         
         // CRÍTICO: Configuración para background
         locationManager.allowsBackgroundLocationUpdates = true
@@ -76,15 +68,15 @@ class LocationService: NSObject, ObservableObject, LocationServiceProtocol {
         locationManager.startUpdatingLocation()
         isTracking = true
         locationError = nil
-        
-        print("📍 LocationService: Tracking iniciado")
+
+        Log("Tracking iniciado", level: .info, category: .location)
     }
-    
+
     /// Detener seguimiento de ubicación
     func stopTracking() {
         locationManager.stopUpdatingLocation()
         isTracking = false
-        print("📍 LocationService: Tracking detenido")
+        Log("Tracking detenido", level: .info, category: .location)
     }
 
     // MARK: - Single Location Request
@@ -95,14 +87,14 @@ class LocationService: NSObject, ObservableObject, LocationServiceProtocol {
     func requestSingleLocation(completion: @escaping (CLLocation?) -> Void) {
         guard authorizationStatus == .authorizedAlways ||
               authorizationStatus == .authorizedWhenInUse else {
-            print("📍 LocationService: Sin permisos para ubicación única")
+            Log("Sin permisos para ubicación única", level: .warning, category: .location)
             completion(nil)
             return
         }
 
         singleLocationCompletion = completion
         locationManager.requestLocation()
-        print("📍 LocationService: Solicitando ubicación única...")
+        Log("Solicitando ubicación única...", level: .debug, category: .location)
     }
 
     /// Obtener distancia a una coordenada
@@ -137,13 +129,13 @@ class LocationService: NSObject, ObservableObject, LocationServiceProtocol {
             locationManager.startMonitoring(for: region)
             monitoredRegions.append(region)
 
-            print("📍 LocationService: Geofence nativo registrado - \(stop.id)")
+            Log("Geofence nativo registrado - \(stop.id)", level: .debug, category: .location)
         }
 
-        print("📍 LocationService: \(stopsToMonitor.count) geofences nativos registrados")
+        Log("\(stopsToMonitor.count) geofences nativos registrados", level: .info, category: .location)
 
-        if stops.count > 20 {
-            print("⚠️ LocationService: Solo se pueden monitorear 20 geofences. \(stops.count - 20) paradas sin geofence nativo.")
+        if stops.count > AppConstants.Geofencing.maxNativeGeofences {
+            Log("Solo se pueden monitorear \(AppConstants.Geofencing.maxNativeGeofences) geofences. \(stops.count - AppConstants.Geofencing.maxNativeGeofences) paradas sin geofence nativo.", level: .warning, category: .location)
         }
     }
 
@@ -154,7 +146,7 @@ class LocationService: NSObject, ObservableObject, LocationServiceProtocol {
         }
         monitoredRegions.removeAll()
         enteredRegionId = nil
-        print("📍 LocationService: Geofences nativos limpiados")
+        Log("Geofences nativos limpiados", level: .info, category: .location)
     }
 
     /// Obtener el stopId desde el identifier de la región
@@ -182,13 +174,13 @@ extension LocationService: CLLocationManagerDelegate {
 
             // Si hay un callback pendiente de ubicación única, llamarlo
             if let completion = self.singleLocationCompletion {
-                print("📍 LocationService: Ubicación única obtenida")
+                Log("Ubicación única obtenida", level: .debug, category: .location)
                 completion(location)
                 self.singleLocationCompletion = nil
             }
         }
 
-        print("📍 LocationService: Nueva ubicación - \(location.coordinate.latitude), \(location.coordinate.longitude)")
+        Log("Nueva ubicación - \(String(format: "%.6f", location.coordinate.latitude)), \(String(format: "%.6f", location.coordinate.longitude))", level: .debug, category: .location)
     }
 
     func locationManager(_ manager: CLLocationManager,
@@ -198,28 +190,28 @@ extension LocationService: CLLocationManagerDelegate {
 
             // Si hay un callback pendiente, llamarlo con nil
             if let completion = self.singleLocationCompletion {
-                print("📍 LocationService: Error obteniendo ubicación única")
+                Log("Error obteniendo ubicación única", level: .warning, category: .location)
                 completion(nil)
                 self.singleLocationCompletion = nil
             }
         }
-        print("❌ LocationService: Error - \(error.localizedDescription)")
+        Log("Error - \(error.localizedDescription)", level: .error, category: .location)
     }
-    
+
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         DispatchQueue.main.async {
             self.authorizationStatus = manager.authorizationStatus
 
             switch manager.authorizationStatus {
             case .authorizedAlways:
-                print("✅ LocationService: Permiso 'Always' concedido")
+                Log("Permiso 'Always' concedido", level: .success, category: .location)
             case .authorizedWhenInUse:
-                print("⚠️ LocationService: Permiso 'When In Use' concedido (necesitamos Always)")
+                Log("Permiso 'When In Use' concedido (necesitamos Always)", level: .warning, category: .location)
             case .denied, .restricted:
                 self.locationError = "Permisos de ubicación denegados"
-                print("❌ LocationService: Permisos denegados")
+                Log("Permisos denegados", level: .error, category: .location)
             case .notDetermined:
-                print("⏳ LocationService: Permisos no determinados")
+                Log("Permisos no determinados", level: .info, category: .location)
             @unknown default:
                 break
             }
@@ -231,37 +223,37 @@ extension LocationService: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         guard let circularRegion = region as? CLCircularRegion else { return }
 
-        print("📍 LocationService: Entrada en región - \(region.identifier)")
+        Log("Entrada en región - \(region.identifier)", level: .info, category: .location)
 
         // Extraer el stopId y notificar
         if let stopId = extractStopId(from: circularRegion.identifier) {
             DispatchQueue.main.async {
                 self.enteredRegionId = stopId
             }
-            print("📍 LocationService: Wake-up para parada - \(stopId)")
+            Log("Wake-up para parada - \(stopId)", level: .info, category: .location)
 
             // Si no estamos tracking activamente, iniciar
             if !isTracking {
                 startTracking()
-                print("📍 LocationService: Tracking iniciado por geofence nativo")
+                Log("Tracking iniciado por geofence nativo", level: .info, category: .location)
             }
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        print("📍 LocationService: Salida de región - \(region.identifier)")
+        Log("Salida de región - \(region.identifier)", level: .debug, category: .location)
     }
 
     func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
         if let region = region {
-            print("❌ LocationService: Error monitoreando región \(region.identifier) - \(error.localizedDescription)")
+            Log("Error monitoreando región \(region.identifier) - \(error.localizedDescription)", level: .error, category: .location)
         } else {
-            print("❌ LocationService: Error monitoreando región - \(error.localizedDescription)")
+            Log("Error monitoreando región - \(error.localizedDescription)", level: .error, category: .location)
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
-        print("📍 LocationService: Monitoreo iniciado para - \(region.identifier)")
+        Log("Monitoreo iniciado para - \(region.identifier)", level: .debug, category: .location)
 
         // Verificar estado inicial de la región
         manager.requestState(for: region)
@@ -270,14 +262,14 @@ extension LocationService: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
         switch state {
         case .inside:
-            print("📍 LocationService: Ya estamos dentro de - \(region.identifier)")
+            Log("Ya estamos dentro de - \(region.identifier)", level: .debug, category: .location)
             // Si ya estamos dentro, disparar el evento
             locationManager(manager, didEnterRegion: region)
         case .outside:
             // Solo log en debug, no spam
             break
         case .unknown:
-            print("📍 LocationService: Estado desconocido para - \(region.identifier)")
+            Log("Estado desconocido para - \(region.identifier)", level: .debug, category: .location)
         }
     }
 }
