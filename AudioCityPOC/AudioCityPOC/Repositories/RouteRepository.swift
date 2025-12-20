@@ -93,7 +93,7 @@ final class CachedRouteRepository: RouteRepositoryProtocol {
         if let cached = routesCache,
            let timestamp = cacheTimestamp,
            Date().timeIntervalSince(timestamp) < cacheValidityDuration {
-            print("📦 CachedRouteRepository: Usando cache de rutas")
+            Log("Usando cache de rutas", level: .debug, category: .route)
             return cached
         }
 
@@ -103,7 +103,7 @@ final class CachedRouteRepository: RouteRepositoryProtocol {
         // Guardar en cache
         routesCache = routes
         cacheTimestamp = Date()
-        print("📦 CachedRouteRepository: Cache de rutas actualizado")
+        Log("Cache de rutas actualizado", level: .debug, category: .route)
 
         return routes
     }
@@ -111,7 +111,7 @@ final class CachedRouteRepository: RouteRepositoryProtocol {
     func fetchRoute(id: String) async throws -> Route {
         // Buscar en cache primero
         if let cached = routesCache?.first(where: { $0.id == id }) {
-            print("📦 CachedRouteRepository: Ruta encontrada en cache")
+            Log("Ruta encontrada en cache", level: .debug, category: .route)
             return cached
         }
 
@@ -121,7 +121,7 @@ final class CachedRouteRepository: RouteRepositoryProtocol {
     func fetchStops(for routeId: String) async throws -> [Stop] {
         // Verificar cache
         if let cached = stopsCache[routeId] {
-            print("📦 CachedRouteRepository: Paradas encontradas en cache")
+            Log("Paradas encontradas en cache", level: .debug, category: .route)
             return cached
         }
 
@@ -130,7 +130,7 @@ final class CachedRouteRepository: RouteRepositoryProtocol {
 
         // Guardar en cache
         stopsCache[routeId] = stops
-        print("📦 CachedRouteRepository: Cache de paradas actualizado")
+        Log("Cache de paradas actualizado", level: .debug, category: .route)
 
         return stops
     }
@@ -153,7 +153,7 @@ final class CachedRouteRepository: RouteRepositoryProtocol {
         routesCache = nil
         stopsCache.removeAll()
         cacheTimestamp = nil
-        print("📦 CachedRouteRepository: Cache invalidado")
+        Log("Cache invalidado", level: .info, category: .route)
     }
 
     /// Invalida el cache de paradas de una ruta específica

@@ -80,7 +80,7 @@ class AudioPreviewService: NSObject, ObservableObject {
         isPlaying = true
         isPaused = false
 
-        print("🎧 AudioPreviewService: Reproduciendo preview para stop \(stopId)")
+        Log("Reproduciendo preview para stop \(stopId)", level: .debug, category: .audio)
     }
 
     /// Pausar preview
@@ -88,7 +88,7 @@ class AudioPreviewService: NSObject, ObservableObject {
         guard isPlaying, !isPaused else { return }
         synthesizer.pauseSpeaking(at: .word)
         isPaused = true
-        print("⏸️ AudioPreviewService: Pausado")
+        Log("Preview pausado", level: .debug, category: .audio)
     }
 
     /// Reanudar preview
@@ -96,7 +96,7 @@ class AudioPreviewService: NSObject, ObservableObject {
         guard isPaused else { return }
         synthesizer.continueSpeaking()
         isPaused = false
-        print("▶️ AudioPreviewService: Reanudado")
+        Log("Preview reanudado", level: .debug, category: .audio)
     }
 
     /// Detener preview
@@ -105,7 +105,7 @@ class AudioPreviewService: NSObject, ObservableObject {
         isPlaying = false
         isPaused = false
         currentStopId = nil
-        print("⏹️ AudioPreviewService: Detenido")
+        Log("Preview detenido", level: .debug, category: .audio)
     }
 
     /// Verificar si un stop específico está reproduciéndose
@@ -135,7 +135,7 @@ extension AudioPreviewService: AVSpeechSynthesizerDelegate {
             self.isPlaying = false
             self.isPaused = false
             self.currentStopId = nil
-            print("✅ AudioPreviewService: Preview finalizado")
+            Log("Preview finalizado", level: .debug, category: .audio)
         }
     }
 

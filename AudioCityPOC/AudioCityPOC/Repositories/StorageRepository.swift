@@ -88,9 +88,9 @@ final class UserDefaultsStorageRepository: StorageRepositoryProtocol {
         do {
             let data = try encoder.encode(value)
             userDefaults.set(data, forKey: prefixedKey)
-            print("💾 Storage: Guardado '\(key)'")
+            Log("Guardado '\(key)'", level: .debug, category: .app)
         } catch {
-            print("❌ Storage: Error guardando '\(key)' - \(error.localizedDescription)")
+            Log("Error guardando '\(key)' - \(error.localizedDescription)", level: .error, category: .app)
             throw StorageError.encodingFailed(error)
         }
     }
@@ -104,10 +104,10 @@ final class UserDefaultsStorageRepository: StorageRepositoryProtocol {
 
         do {
             let value = try decoder.decode(T.self, from: data)
-            print("💾 Storage: Cargado '\(key)'")
+            Log("Cargado '\(key)'", level: .debug, category: .app)
             return value
         } catch {
-            print("❌ Storage: Error cargando '\(key)' - \(error.localizedDescription)")
+            Log("Error cargando '\(key)' - \(error.localizedDescription)", level: .error, category: .app)
             throw StorageError.decodingFailed(error)
         }
     }
@@ -115,7 +115,7 @@ final class UserDefaultsStorageRepository: StorageRepositoryProtocol {
     func delete(forKey key: String) {
         let prefixedKey = prefixedKey(for: key)
         userDefaults.removeObject(forKey: prefixedKey)
-        print("💾 Storage: Eliminado '\(key)'")
+        Log("Eliminado '\(key)'", level: .debug, category: .app)
     }
 
     func exists(forKey key: String) -> Bool {
@@ -132,7 +132,7 @@ final class UserDefaultsStorageRepository: StorageRepositoryProtocol {
             userDefaults.removeObject(forKey: key)
         }
 
-        print("💾 Storage: Limpiado todo el almacenamiento (\(prefixedKeys.count) claves)")
+        Log("Limpiado todo el almacenamiento (\(prefixedKeys.count) claves)", level: .info, category: .app)
     }
 
     // MARK: - Private Methods
