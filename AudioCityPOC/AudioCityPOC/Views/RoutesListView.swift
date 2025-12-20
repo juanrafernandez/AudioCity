@@ -13,13 +13,9 @@ import Combine
 struct RoutesListView: View {
     // Support for both standalone and shared viewModel modes
     @ObservedObject private var viewModel: RouteViewModel
-    @ObservedObject private var tripService = TripService.shared
     @ObservedObject private var exploreViewModel = ExploreViewModel.shared
     @StateObject private var favoritesService = FavoritesService()
-    @State private var showingTripOnboarding = false
     @State private var showingAllRoutes = false
-    @State private var showingAllTrips = false
-    @State private var selectedTrip: Trip?
     @State private var userLocation: CLLocation?
 
     // Callbacks para manejar la optimización a nivel global (MainTabView)
@@ -96,24 +92,11 @@ struct RoutesListView: View {
                 userLocation = location
             }
         }
-        .sheet(isPresented: $showingTripOnboarding) {
-            TripOnboardingView(tripService: tripService, onComplete: { _ in
-                showingTripOnboarding = false
-            })
-        }
         .sheet(isPresented: $showingAllRoutes) {
             AllRoutesView(routes: viewModel.availableRoutes) { route in
                 viewModel.selectRoute(route)
             }
         }
-        .sheet(isPresented: $showingAllTrips) {
-            AllTripsView(tripService: tripService)
-        }
-        .sheet(item: $selectedTrip) { trip in
-            TripDetailView(trip: trip, tripService: tripService)
-        }
-        // El callback onRouteStarted ahora se llama desde RouteDetailContentV2
-        // después de cerrar el sheet de optimización
     }
 
     // MARK: - Main Content
@@ -146,10 +129,6 @@ struct RoutesListView: View {
     private var routesSectionsView: some View {
         ScrollView {
             VStack(spacing: ACSpacing.sectionSpacing) {
-                // Mis Viajes Section
-                myTripsSection
-                    .padding(.horizontal, ACSpacing.containerPadding)
-
                 // Rutas Favoritas (horizontal scroll)
                 if !favoriteRoutes.isEmpty {
                     routeSectionHorizontal(
@@ -189,119 +168,6 @@ struct RoutesListView: View {
             .padding(.top, ACSpacing.base)
         }
         .background(ACColors.background)
-    }
-
-    // MARK: - My Trips Section
-    private var upcomingTrips: [Trip] {
-        tripService.trips
-            .filter { !$0.isPast }
-            .sorted { trip1, trip2 in
-                if trip1.isCurrent != trip2.isCurrent {
-                    return trip1.isCurrent
-                }
-                return (trip1.startDate ?? .distantFuture) < (trip2.startDate ?? .distantFuture)
-            }
-    }
-
-    private var totalTripsCount: Int { tripService.trips.count }
-    private var visibleTrips: [Trip] { Array(upcomingTrips.prefix(2)) }
-
-    private var myTripsSection: some View {
-        VStack(alignment: .leading, spacing: ACSpacing.md) {
-            // Header
-            HStack(alignment: .center) {
-                HStack(spacing: ACSpacing.sm) {
-                    Image(systemName: "suitcase.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(ACColors.secondary)
-
-                    Text("Mis Viajes")
-                        .font(ACTypography.headlineMedium)
-                        .foregroundColor(ACColors.textPrimary)
-
-                    if totalTripsCount > 0 {
-                        Text("\(visibleTrips.count)/\(totalTripsCount)")
-                            .font(ACTypography.caption)
-                            .foregroundColor(ACColors.textTertiary)
-                    }
-                }
-
-                Spacer()
-
-                ACButton("Planificar", icon: "plus", style: .primary, size: .small) {
-                    showingTripOnboarding = true
-                }
-            }
-
-            // Content
-            if tripService.trips.isEmpty {
-                emptyTripsCard
-            } else {
-                VStack(spacing: ACSpacing.sm) {
-                    ForEach(visibleTrips) { trip in
-                        TripCardV2(trip: trip) {
-                            selectedTrip = trip
-                        }
-                    }
-
-                    if totalTripsCount > 2 {
-                        Button(action: { showingAllTrips = true }) {
-                            HStack(spacing: ACSpacing.xs) {
-                                Text("Ver todos los viajes")
-                                    .font(ACTypography.labelMedium)
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                            }
-                            .foregroundColor(ACColors.secondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, ACSpacing.sm)
-                        }
-                    }
-                }
-            }
-        }
-        .padding(ACSpacing.cardPadding)
-        .background(ACColors.surface)
-        .cornerRadius(ACRadius.lg)
-        .acShadow(ACShadow.sm)
-    }
-
-    private var emptyTripsCard: some View {
-        Button(action: { showingTripOnboarding = true }) {
-            HStack(spacing: ACSpacing.md) {
-                ZStack {
-                    Circle()
-                        .fill(ACColors.secondaryLight)
-                        .frame(width: 48, height: 48)
-
-                    Image(systemName: "airplane.departure")
-                        .font(.system(size: 20))
-                        .foregroundColor(ACColors.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: ACSpacing.xxs) {
-                    Text("Planifica tu primer viaje")
-                        .font(ACTypography.titleSmall)
-                        .foregroundColor(ACColors.textPrimary)
-
-                    Text("Selecciona destino y rutas para tenerlas offline")
-                        .font(ACTypography.bodySmall)
-                        .foregroundColor(ACColors.textSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(ACColors.textTertiary)
-            }
-            .padding(ACSpacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: ACRadius.md)
-                    .stroke(ACColors.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6]))
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Horizontal Section
@@ -494,64 +360,6 @@ struct RoutesListView: View {
                 onStartRouteDirectly: onStartRouteDirectly
             )
         }
-    }
-}
-
-// MARK: - Trip Card V2
-struct TripCardV2: View {
-    let trip: Trip
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: ACSpacing.md) {
-                // Icon
-                ZStack {
-                    RoundedRectangle(cornerRadius: ACRadius.md)
-                        .fill(ACColors.secondaryLight)
-                        .frame(width: 56, height: 56)
-
-                    Image(systemName: "mappin.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(ACColors.secondary)
-                }
-
-                // Info
-                VStack(alignment: .leading, spacing: ACSpacing.xs) {
-                    HStack {
-                        Text(trip.destinationCity)
-                            .font(ACTypography.titleMedium)
-                            .foregroundColor(ACColors.textPrimary)
-
-                        if trip.isCurrent {
-                            ACStatusBadge(text: "Activo", status: .active)
-                        }
-                    }
-
-                    HStack(spacing: ACSpacing.md) {
-                        ACMetaBadge(icon: "map", text: "\(trip.routeCount) rutas")
-
-                        if trip.isOfflineAvailable {
-                            ACMetaBadge(icon: "arrow.down.circle.fill", text: "Offline", color: ACColors.success)
-                        }
-
-                        if let dateRange = trip.dateRangeFormatted {
-                            ACMetaBadge(icon: "calendar", text: dateRange)
-                        }
-                    }
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(ACColors.textTertiary)
-            }
-            .padding(ACSpacing.md)
-            .background(ACColors.background)
-            .cornerRadius(ACRadius.md)
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 }
 
