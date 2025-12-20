@@ -15,9 +15,20 @@ class FirebaseService: ObservableObject, FirebaseServiceProtocol {
     // MARK: - Published Properties
     @Published var isLoading = false
     @Published var errorMessage: String?
-    
+
     // MARK: - Private Properties
     private let db = Firestore.firestore()
+
+    // MARK: - Routes Cache (TTL: 5 minutos)
+    private var routesCache: [Route]?
+    private var routesCacheTimestamp: Date?
+    private let routesCacheTTL: TimeInterval = 300 // 5 minutos
+
+    private var isCacheValid: Bool {
+        guard routesCache != nil,
+              let timestamp = routesCacheTimestamp else { return false }
+        return Date().timeIntervalSince(timestamp) < routesCacheTTL
+    }
     
     // MARK: - Public Methods
     
@@ -89,23 +100,33 @@ class FirebaseService: ObservableObject, FirebaseServiceProtocol {
         return try await (route, stops)
     }
     
-    /// Cargar todas las rutas disponibles
+    /// Cargar todas las rutas disponibles (con caché)
     func fetchAllRoutes() async throws -> [Route] {
+        // Retornar caché si es válida
+        if isCacheValid, let cached = routesCache {
+            Log("\(cached.count) rutas desde caché", level: .debug, category: .firebase)
+            return cached
+        }
+
         isLoading = true
         errorMessage = nil
-        
+
         defer { isLoading = false }
-        
+
         do {
             let snapshot = try await db.collection("routes")
                 .whereField("is_active", isEqualTo: true)
                 .getDocuments()
-            
+
             let routes = try snapshot.documents.compactMap { doc in
                 try doc.data(as: Route.self)
             }
-            
-            Log("\(routes.count) rutas disponibles", level: .success, category: .firebase)
+
+            // Guardar en caché
+            routesCache = routes
+            routesCacheTimestamp = Date()
+
+            Log("\(routes.count) rutas disponibles (cacheadas)", level: .success, category: .firebase)
             return routes
 
         } catch {
@@ -113,6 +134,13 @@ class FirebaseService: ObservableObject, FirebaseServiceProtocol {
             Log("Error cargando rutas - \(error.localizedDescription)", level: .error, category: .firebase)
             throw error
         }
+    }
+
+    /// Invalidar caché de rutas (forzar recarga en próxima llamada)
+    func invalidateRoutesCache() {
+        routesCache = nil
+        routesCacheTimestamp = nil
+        Log("Caché de rutas invalidada", level: .debug, category: .firebase)
     }
 }
 
