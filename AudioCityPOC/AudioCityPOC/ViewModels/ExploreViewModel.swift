@@ -89,15 +89,15 @@ class ExploreViewModel: ObservableObject {
                     self.allStops = allFetchedStops
                     self.isLoading = false
 
-                    print("✅ ExploreViewModel: \(fetchedRoutes.count) rutas cargadas")
-                    print("✅ ExploreViewModel: \(allFetchedStops.count) paradas totales cargadas")
+                    Log("\(fetchedRoutes.count) rutas cargadas", level: .success, category: .route)
+                    Log("\(allFetchedStops.count) paradas totales cargadas", level: .success, category: .route)
                 }
 
             } catch {
                 await MainActor.run {
                     self.errorMessage = "Error cargando paradas: \(error.localizedDescription)"
                     self.isLoading = false
-                    print("❌ ExploreViewModel: Error - \(error.localizedDescription)")
+                    Log("Error - \(error.localizedDescription)", level: .error, category: .route)
                 }
             }
         }
@@ -107,7 +107,7 @@ class ExploreViewModel: ObservableObject {
     func playStop(_ stop: Stop) {
         selectedStop = stop
         audioService.speak(text: stop.scriptEs, language: "es-ES")
-        print("🔊 Reproduciendo: \(stop.name)")
+        Log("Reproduciendo: \(stop.name)", level: .info, category: .audio)
     }
 
     /// Detener audio
@@ -177,16 +177,16 @@ class ExploreViewModel: ObservableObject {
     /// Centrar en usuario solo la primera vez
     func centerOnUserIfNeeded() {
         guard !hasCenteredOnUser else {
-            print("📍 ExploreViewModel: Ya centrado previamente")
+            Log("Ya centrado previamente", level: .debug, category: .location)
             return
         }
 
         guard let userLocation = locationService.userLocation else {
-            print("📍 ExploreViewModel: Ubicación no disponible aún")
+            Log("Ubicación no disponible aún", level: .debug, category: .location)
             return
         }
 
-        print("📍 ExploreViewModel: Centrando en usuario \(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude)")
+        Log("Centrando en usuario \(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude)", level: .info, category: .location)
 
         mapRegion = MKCoordinateRegion(
             center: userLocation.coordinate,
@@ -202,19 +202,19 @@ class ExploreViewModel: ObservableObject {
     /// Solicitar ubicación actual una sola vez (sin tracking continuo)
     func requestCurrentLocation() {
         guard !hasCenteredOnUser else {
-            print("📍 ExploreViewModel: Ya centrado, no solicitar de nuevo")
+            Log("Ya centrado, no solicitar de nuevo", level: .debug, category: .location)
             return
         }
 
-        print("📍 ExploreViewModel: Solicitando ubicación única...")
+        Log("Solicitando ubicación única...", level: .debug, category: .location)
         locationService.requestSingleLocation { [weak self] location in
             guard let self = self, let location = location else {
-                print("📍 ExploreViewModel: No se pudo obtener ubicación")
+                Log("No se pudo obtener ubicación", level: .warning, category: .location)
                 return
             }
 
             DispatchQueue.main.async {
-                print("📍 ExploreViewModel: Ubicación obtenida \(location.coordinate.latitude), \(location.coordinate.longitude)")
+                Log("Ubicación obtenida \(location.coordinate.latitude), \(location.coordinate.longitude)", level: .info, category: .location)
                 self.mapRegion = MKCoordinateRegion(
                     center: location.coordinate,
                     span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)

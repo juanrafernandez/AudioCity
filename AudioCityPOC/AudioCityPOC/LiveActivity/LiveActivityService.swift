@@ -57,7 +57,7 @@ class LiveActivityService: ObservableObject {
     ) async {
         // Verificar si Live Activities están habilitadas
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
-            print("⚠️ LiveActivityService: Live Activities no están habilitadas")
+            Log("Live Activities no están habilitadas", level: .warning, category: .app)
             return
         }
 
@@ -101,13 +101,13 @@ class LiveActivityService: ObservableObject {
                 self.isActivityActive = true
             }
 
-            print("✅ LiveActivityService: Live Activity iniciado - \(activity.id)")
+            Log("Live Activity iniciado - \(activity.id)", level: .success, category: .app)
 
             // Observar cambios de estado
             observeActivityState(activity)
 
         } catch {
-            print("❌ LiveActivityService: Error iniciando Live Activity - \(error.localizedDescription)")
+            Log("Error iniciando Live Activity - \(error.localizedDescription)", level: .error, category: .app)
         }
     }
 
@@ -128,7 +128,7 @@ class LiveActivityService: ObservableObject {
         isPlaying: Bool
     ) async {
         guard let activity = currentActivity else {
-            print("⚠️ LiveActivityService: No hay actividad activa para actualizar")
+            Log("No hay actividad activa para actualizar", level: .warning, category: .app)
             return
         }
 
@@ -147,7 +147,7 @@ class LiveActivityService: ObservableObject {
         )
 
         await activity.update(content)
-        print("📍 LiveActivityService: Actualizado - \(Int(distanceToNextStop))m a \(nextStopName)")
+        Log("Actualizado - \(Int(distanceToNextStop))m a \(nextStopName)", level: .debug, category: .app)
     }
 
     /// Finalizar el Live Activity
@@ -170,7 +170,7 @@ class LiveActivityService: ObservableObject {
             self.isActivityActive = false
         }
 
-        print("⏹️ LiveActivityService: Live Activity finalizado")
+        Log("Live Activity finalizado", level: .info, category: .app)
     }
 
     /// Verificar si Live Activities están disponibles
@@ -183,7 +183,7 @@ class LiveActivityService: ObservableObject {
     /// Recuperar actividades existentes (por si la app se reinició)
     private func recoverExistingActivities() async {
         for activity in Activity<RouteActivityAttributes>.activities {
-            print("🔄 LiveActivityService: Recuperando actividad existente - \(activity.id)")
+            Log("Recuperando actividad existente - \(activity.id)", level: .info, category: .app)
 
             await MainActor.run {
                 self.currentActivity = activity
@@ -202,17 +202,17 @@ class LiveActivityService: ObservableObject {
                     switch state {
                     case .active:
                         self.isActivityActive = true
-                        print("🟢 LiveActivityService: Actividad activa")
+                        Log("Actividad activa", level: .success, category: .app)
                     case .ended:
                         self.isActivityActive = false
                         self.currentActivity = nil
-                        print("🔴 LiveActivityService: Actividad finalizada")
+                        Log("Actividad finalizada", level: .info, category: .app)
                     case .dismissed:
                         self.isActivityActive = false
                         self.currentActivity = nil
-                        print("🔴 LiveActivityService: Actividad descartada")
+                        Log("Actividad descartada", level: .info, category: .app)
                     case .stale:
-                        print("🟡 LiveActivityService: Actividad obsoleta")
+                        Log("Actividad obsoleta", level: .warning, category: .app)
                     @unknown default:
                         break
                     }
@@ -242,7 +242,7 @@ class LiveActivityServiceWrapper {
         totalStops: Int
     ) {
         guard #available(iOS 16.1, *) else {
-            print("⚠️ Live Activities no disponibles en esta versión de iOS")
+            Log("Live Activities no disponibles en esta versión de iOS", level: .warning, category: .app)
             return
         }
 

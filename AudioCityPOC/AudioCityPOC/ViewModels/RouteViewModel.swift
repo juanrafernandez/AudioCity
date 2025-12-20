@@ -98,7 +98,7 @@ class RouteViewModel: ObservableObject {
         // Observar estado de audio
         audioService.$isPlaying
             .sink { [weak self] isPlaying in
-                print("🎵 Audio playing: \(isPlaying)")
+                Log("Audio playing: \(isPlaying)", level: .debug, category: .audio)
             }
             .store(in: &cancellables)
 
@@ -110,7 +110,7 @@ class RouteViewModel: ObservableObject {
                 // Buscar la parada correspondiente y actualizar currentStop
                 if let stop = self.stops.first(where: { $0.id == queueItem.stopId }) {
                     self.currentStop = stop
-                    print("🎵 Reproduciendo ahora: \(stop.name)")
+                    Log("Reproduciendo ahora: \(stop.name)", level: .info, category: .audio)
                 }
             }
             .store(in: &cancellables)
@@ -139,11 +139,11 @@ class RouteViewModel: ObservableObject {
         switch action {
         case .listen:
             // El audio ya se está reproduciendo, no hacer nada
-            print("🎵 RouteViewModel: Usuario confirmó escuchar - \(stopId)")
+            Log("Usuario confirmó escuchar - \(stopId)", level: .info, category: .route)
 
         case .skip:
             // Saltar/detener el audio de esta parada
-            print("⏭️ RouteViewModel: Usuario saltó parada - \(stopId)")
+            Log("Usuario saltó parada - \(stopId)", level: .info, category: .route)
             audioService.stop()
         }
     }
@@ -162,14 +162,14 @@ class RouteViewModel: ObservableObject {
                 await MainActor.run {
                     self.availableRoutes = routes
                     self.isLoadingRoutes = false
-                    print("✅ RouteViewModel: \(routes.count) rutas disponibles")
+                    Log("\(routes.count) rutas disponibles", level: .success, category: .route)
                 }
 
             } catch {
                 await MainActor.run {
                     self.errorMessage = "Error cargando rutas: \(error.localizedDescription)"
                     self.isLoadingRoutes = false
-                    print("❌ RouteViewModel: Error cargando rutas - \(error.localizedDescription)")
+                    Log("Error cargando rutas - \(error.localizedDescription)", level: .error, category: .route)
                 }
             }
         }
@@ -189,15 +189,15 @@ class RouteViewModel: ObservableObject {
                     self.stops = fetchedStops
                     self.isLoading = false
 
-                    print("✅ RouteViewModel: Ruta seleccionada - \(route.name)")
-                    print("✅ RouteViewModel: \(fetchedStops.count) paradas cargadas")
+                    Log("Ruta seleccionada - \(route.name)", level: .success, category: .route)
+                    Log("\(fetchedStops.count) paradas cargadas", level: .success, category: .route)
                 }
 
             } catch {
                 await MainActor.run {
                     self.errorMessage = "Error cargando paradas: \(error.localizedDescription)"
                     self.isLoading = false
-                    print("❌ RouteViewModel: Error - \(error.localizedDescription)")
+                    Log("Error - \(error.localizedDescription)", level: .error, category: .route)
                 }
             }
         }
@@ -274,7 +274,7 @@ class RouteViewModel: ObservableObject {
     /// Optimizar ruta empezando por el punto más cercano (algoritmo nearest neighbor)
     func optimizeRouteFromCurrentLocation() {
         guard let userLocation = locationService.userLocation else {
-            print("⚠️ No hay ubicación del usuario para optimizar")
+            Log("No hay ubicación del usuario para optimizar", level: .warning, category: .route)
             return
         }
 
@@ -329,11 +329,11 @@ class RouteViewModel: ObservableObject {
         // Guardar estado para poder continuar después de cerrar la app
         saveActiveRouteState()
 
-        print("🚀 RouteViewModel: Ruta iniciada\(optimized ? " (optimizada)" : "") - \(route.name)")
+        Log("Ruta iniciada\(optimized ? " (optimizada)" : "") - \(route.name)", level: .success, category: .route)
         if locationService.isGeofencingAvailable() {
-            print("📍 Geofences nativos disponibles y registrados")
+            Log("Geofences nativos disponibles y registrados", level: .info, category: .location)
         } else {
-            print("⚠️ Geofences nativos no disponibles en este dispositivo")
+            Log("Geofences nativos no disponibles en este dispositivo", level: .warning, category: .location)
         }
 
         // Calcular la ruta (Live Activity se inicia cuando termina el cálculo)
@@ -408,7 +408,7 @@ class RouteViewModel: ObservableObject {
                 self.routeDistances = calcResult.distances
                 self.distanceToNextStop = calcResult.distanceToNext
                 self.isRouteReady = true
-                print("✅ RouteViewModel: Ruta lista para mostrar, distancia: \(Int(calcResult.distanceToNext))m")
+                Log("Ruta lista para mostrar, distancia: \(Int(calcResult.distanceToNext))m", level: .success, category: .route)
 
                 // Iniciar Live Activity DESPUÉS de tener la distancia calculada
                 self.startLiveActivity()
@@ -416,7 +416,7 @@ class RouteViewModel: ObservableObject {
             case .failure(let error):
                 self.errorMessage = "Error calculando ruta: \(error.localizedDescription)"
                 self.isRouteReady = true // Marcar como lista aunque falle
-                print("❌ RouteViewModel: Error calculando ruta - \(error.localizedDescription)")
+                Log("Error calculando ruta - \(error.localizedDescription)", level: .error, category: .route)
 
                 // Iniciar Live Activity aunque falle (mostrará 0m)
                 self.startLiveActivity()
@@ -434,7 +434,7 @@ class RouteViewModel: ObservableObject {
                 self.routePolylines[0] = polyline
                 self.routeDistances[0] = distance
                 self.distanceToNextStop = distance
-                print("📍 Distancia actualizada: \(Int(distance))m caminando")
+                Log("Distancia actualizada: \(Int(distance))m caminando", level: .debug, category: .route)
 
                 // Actualizar Live Activity con la nueva distancia
                 self.updateLiveActivity()
@@ -487,7 +487,7 @@ class RouteViewModel: ObservableObject {
         // Limpiar estado guardado
         clearActiveRouteState()
 
-        print("⏹️ RouteViewModel: Ruta finalizada")
+        Log("Ruta finalizada", level: .info, category: .route)
     }
 
     /// Pausar audio
@@ -551,16 +551,16 @@ class RouteViewModel: ObservableObject {
             order: stop.order
         )
 
-        print("🎯 RouteViewModel: Parada activada y encolada - \(stop.name)")
-        print("📊 Progreso: \(visitedStopsCount)/\(stops.count) paradas completadas")
-        print("🔊 Cola de audio: \(audioService.getQueueCount()) pendientes")
+        Log("Parada activada y encolada - \(stop.name)", level: .info, category: .route)
+        Log("Progreso: \(visitedStopsCount)/\(stops.count) paradas completadas", level: .info, category: .route)
+        Log("Cola de audio: \(audioService.getQueueCount()) pendientes", level: .debug, category: .audio)
 
         // Actualizar Live Activity con el nuevo progreso
         updateLiveActivity()
 
         // Si completamos todas las paradas
         if visitedStopsCount == stops.count {
-            print("🎉 RouteViewModel: ¡Ruta completada!")
+            Log("¡Ruta completada!", level: .success, category: .route)
             // Finalizar Live Activity mostrando estado final
             LiveActivityServiceWrapper.shared.endActivity(showFinalState: true)
         }
@@ -585,7 +585,7 @@ class RouteViewModel: ObservableObject {
         if let nearestStop = nearest {
             let distance = location.distance(from: nearestStop.location)
             if distance < 100 { // Menos de 100 metros
-                print("📍 Cerca de: \(nearestStop.name) - \(Int(distance))m")
+                Log("Cerca de: \(nearestStop.name) - \(Int(distance))m", level: .debug, category: .location)
             }
         }
     }
@@ -607,14 +607,14 @@ class RouteViewModel: ObservableObject {
 
         if let encoded = try? JSONEncoder().encode(state) {
             UserDefaults.standard.set(encoded, forKey: activeRouteStateKey)
-            print("💾 RouteViewModel: Estado de ruta guardado")
+            Log("Estado de ruta guardado", level: .debug, category: .route)
         }
     }
 
     /// Limpiar estado de ruta activa de UserDefaults
     private func clearActiveRouteState() {
         UserDefaults.standard.removeObject(forKey: activeRouteStateKey)
-        print("🗑️ RouteViewModel: Estado de ruta limpiado")
+        Log("Estado de ruta limpiado", level: .debug, category: .route)
     }
 
     /// Obtener estado de ruta activa guardado (si existe)
@@ -633,7 +633,7 @@ class RouteViewModel: ObservableObject {
 
     /// Restaurar ruta desde estado guardado
     func restoreRoute(from state: ActiveRouteState, completion: @escaping (Bool) -> Void) {
-        print("🔄 RouteViewModel: Restaurando ruta - \(state.routeName)")
+        Log("Restaurando ruta - \(state.routeName)", level: .info, category: .route)
 
         currentHistoryId = state.historyId
 
@@ -674,7 +674,7 @@ class RouteViewModel: ObservableObject {
 
                     self.visitedStopsCount = self.stops.filter { $0.hasBeenVisited }.count
 
-                    print("✅ RouteViewModel: Ruta restaurada - \(fetchedStops.count) paradas")
+                    Log("Ruta restaurada - \(fetchedStops.count) paradas", level: .success, category: .route)
                     completion(true)
                 }
 
