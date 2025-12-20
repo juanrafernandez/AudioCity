@@ -2,13 +2,7 @@
 //  Route.swift
 //  AudioCityPOC
 //
-//  Created by JuanRa Fernandez on 23/11/25.
-//
-
-
-//
-//  Route.swift
-//  AudioCityPOC
+//  Modelo de ruta turística
 //
 
 import Foundation

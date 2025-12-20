@@ -64,7 +64,7 @@ class PointsService: ObservableObject {
             }
             .store(in: &cancellables)
 
-        print("📡 PointsService: Suscrito a eventos")
+        Log("Suscrito a eventos", level: .debug, category: .points)
     }
 
     /// Otorgar puntos cuando otro usuario usa una de tus rutas
@@ -75,7 +75,7 @@ class PointsService: ObservableObject {
             routeName: routeName
         )
         addTransaction(transaction)
-        print("✅ PointsService: +\(PointsAction.routeUsedByOthers.points) pts - tu ruta '\(routeName)' fue usada")
+        Log("+\(PointsAction.routeUsedByOthers.points) pts - tu ruta '\(routeName)' fue usada", level: .success, category: .points)
     }
 
     // MARK: - Public Methods
@@ -83,7 +83,7 @@ class PointsService: ObservableObject {
     /// Otorgar puntos por crear una ruta
     func awardPointsForCreatingRoute(routeId: String, routeName: String, stopsCount: Int) {
         guard stopsCount >= 3 else {
-            print("⚠️ PointsService: Ruta con menos de 3 paradas, no se otorgan puntos")
+            Log("Ruta con menos de 3 paradas, no se otorgan puntos", level: .warning, category: .points)
             return
         }
 
@@ -105,7 +105,7 @@ class PointsService: ObservableObject {
         addTransaction(transaction)
         stats.routesCreated += 1
 
-        print("✅ PointsService: +\(action.points) pts por crear ruta '\(routeName)' (\(stopsCount) paradas)")
+        Log("+\(action.points) pts por crear ruta '\(routeName)' (\(stopsCount) paradas)", level: .success, category: .points)
     }
 
     /// Otorgar puntos por publicar una ruta
@@ -117,7 +117,7 @@ class PointsService: ObservableObject {
         )
 
         addTransaction(transaction)
-        print("✅ PointsService: +\(PointsAction.publishRoute.points) pts por publicar ruta '\(routeName)'")
+        Log("+\(PointsAction.publishRoute.points) pts por publicar ruta '\(routeName)'", level: .success, category: .points)
     }
 
     /// Otorgar puntos por completar una ruta
@@ -131,7 +131,7 @@ class PointsService: ObservableObject {
         addTransaction(baseTransaction)
         stats.routesCompleted += 1
 
-        print("✅ PointsService: +\(PointsAction.completeRoute.points) pts por completar ruta '\(routeName)'")
+        Log("+\(PointsAction.completeRoute.points) pts por completar ruta '\(routeName)'", level: .success, category: .points)
 
         // Verificar si es la primera ruta del día
         checkFirstRouteOfDay(routeId: routeId, routeName: routeName)
@@ -149,7 +149,7 @@ class PointsService: ObservableObject {
         )
 
         addTransaction(transaction)
-        print("✅ PointsService: +\(PointsAction.routeUsedByOthers.points) pts - Tu ruta '\(routeName)' fue usada")
+        Log("+\(PointsAction.routeUsedByOthers.points) pts - Tu ruta '\(routeName)' fue usada", level: .success, category: .points)
     }
 
     /// Obtener transacciones recientes (últimas N)
@@ -183,7 +183,7 @@ class PointsService: ObservableObject {
         // Verificar si subió de nivel
         if stats.currentLevel.rawValue > previousLevel.rawValue {
             recentLevelUp = stats.currentLevel
-            print("🎉 PointsService: ¡Subiste a nivel \(stats.currentLevel.name)!")
+            Log("¡Subiste a nivel \(stats.currentLevel.name)!", level: .success, category: .points)
         }
 
         saveData()
@@ -202,7 +202,7 @@ class PointsService: ObservableObject {
                 routeName: routeName
             )
             addTransaction(transaction)
-            print("✅ PointsService: +\(PointsAction.firstRouteOfDay.points) pts - Primera ruta del día")
+            Log("+\(PointsAction.firstRouteOfDay.points) pts - Primera ruta del día", level: .success, category: .points)
         }
 
         try? repository.saveLastCompletionDate(Date())
@@ -243,14 +243,14 @@ class PointsService: ObservableObject {
         if stats.currentStreak == 3 {
             let transaction = PointsTransaction(action: .streakThreeDays)
             addTransaction(transaction)
-            print("🔥 PointsService: +\(PointsAction.streakThreeDays.points) pts - ¡Racha de 3 días!")
+            Log("+\(PointsAction.streakThreeDays.points) pts - ¡Racha de 3 días!", level: .success, category: .points)
         }
 
         // Bonus por racha de 7 días
         if stats.currentStreak == 7 {
             let transaction = PointsTransaction(action: .streakSevenDays)
             addTransaction(transaction)
-            print("🔥 PointsService: +\(PointsAction.streakSevenDays.points) pts - ¡Racha de 7 días!")
+            Log("+\(PointsAction.streakSevenDays.points) pts - ¡Racha de 7 días!", level: .success, category: .points)
         }
     }
 
@@ -275,9 +275,9 @@ class PointsService: ObservableObject {
         do {
             stats = try repository.loadStats()
             transactions = try repository.loadTransactions()
-            print("✅ PointsService: Datos cargados - \(stats.totalPoints) pts, Nivel \(stats.currentLevel.name)")
+            Log("Datos cargados - \(stats.totalPoints) pts, Nivel \(stats.currentLevel.name)", level: .info, category: .points)
         } catch {
-            print("❌ PointsService: Error cargando datos - \(error.localizedDescription)")
+            Log("Error cargando datos - \(error.localizedDescription)", level: .error, category: .points)
             stats = UserPointsStats()
             transactions = []
         }
@@ -288,7 +288,7 @@ class PointsService: ObservableObject {
             try repository.saveStats(stats)
             try repository.saveTransactions(transactions)
         } catch {
-            print("❌ PointsService: Error guardando datos - \(error.localizedDescription)")
+            Log("Error guardando datos - \(error.localizedDescription)", level: .error, category: .points)
         }
     }
 }
