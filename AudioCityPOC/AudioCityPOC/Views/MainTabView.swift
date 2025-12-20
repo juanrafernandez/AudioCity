@@ -23,6 +23,11 @@ struct MainTabView: View {
     // Para observar cambios de isRouteReady de manera confiable
     @State private var routeReadyCancellable: AnyCancellable?
 
+    // Estados para continuar ruta activa
+    @State private var showContinueRouteAlert = false
+    @State private var savedRouteState: ActiveRouteState?
+    @State private var isRestoringRoute = false
+
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
@@ -132,14 +137,17 @@ struct MainTabView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            // Loading overlay cuando se inicia sin sheet de optimización
-            if isCalculatingRoute && !showOptimizeSheet {
+            // Loading overlay cuando se inicia sin sheet de optimización o cuando se restaura una ruta
+            if (isCalculatingRoute || isRestoringRoute) && !showOptimizeSheet {
                 RouteLoadingOverlayGlobal()
                     .zIndex(999)
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showOptimizeSheet)
         .onAppear {
+            // Verificar si hay una ruta activa guardada
+            checkForActiveRoute()
+
             // Observar isRouteReady con Combine para mayor fiabilidad
             routeReadyCancellable = activeRouteViewModel.$isRouteReady
                 .dropFirst() // Ignorar valor inicial
@@ -157,6 +165,7 @@ struct MainTabView: View {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                             showOptimizeSheet = false
                             isCalculatingRoute = false
+                            isRestoringRoute = false
                             selectedTab = 1
                         }
                     }
@@ -165,6 +174,20 @@ struct MainTabView: View {
         .onChange(of: selectedTab) { oldTab, newTab in
             // Detener audio de preview cuando se cambia de tab
             AudioPreviewService.shared.stop()
+        }
+        .alert("Continuar ruta", isPresented: $showContinueRouteAlert) {
+            Button("Cancelar", role: .cancel) {
+                // Limpiar estado guardado si el usuario no quiere continuar
+                activeRouteViewModel.clearSavedRoute()
+                savedRouteState = nil
+            }
+            Button("Continuar") {
+                continueActiveRoute()
+            }
+        } message: {
+            if let state = savedRouteState {
+                Text("Tienes una ruta activa: \(state.routeName). ¿Quieres continuar?")
+            }
         }
     }
 
@@ -206,6 +229,32 @@ struct MainTabView: View {
         ExploreViewModel.shared.hasPositionedActiveRoute = true
 
         print("🗺️ MainTabView: Mapa centrado en ruta activa")
+    }
+
+    /// Verificar si hay una ruta activa guardada
+    private func checkForActiveRoute() {
+        if let state = activeRouteViewModel.getActiveRouteState() {
+            savedRouteState = state
+            showContinueRouteAlert = true
+            print("🔔 MainTabView: Ruta activa encontrada - \(state.routeName)")
+        }
+    }
+
+    /// Continuar con la ruta activa guardada
+    private func continueActiveRoute() {
+        guard let state = savedRouteState else { return }
+
+        isRestoringRoute = true
+
+        activeRouteViewModel.restoreRoute(from: state) { success in
+            if success {
+                // Iniciar la ruta (esto recalculará todo)
+                activeRouteViewModel.startRoute(optimized: false)
+            } else {
+                isRestoringRoute = false
+                print("❌ MainTabView: Error restaurando ruta")
+            }
+        }
     }
 }
 

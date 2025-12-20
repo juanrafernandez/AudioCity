@@ -54,6 +54,10 @@ class RouteViewModel: ObservableObject {
 
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
+    private var currentHistoryId: String?
+
+    // UserDefaults key para estado de ruta activa
+    private let activeRouteStateKey = "activeRouteState"
 
     // MARK: - Initialization
 
@@ -298,6 +302,15 @@ class RouteViewModel: ObservableObject {
             optimizeRouteFromCurrentLocation()
         }
 
+        // Registrar en el historial
+        let historyRecord = HistoryService.shared.startRoute(
+            routeId: route.id,
+            routeName: route.name,
+            routeCity: route.city,
+            totalStops: stops.count
+        )
+        currentHistoryId = historyRecord.id
+
         // Solicitar permisos de notificaciones
         notificationService.requestAuthorization()
 
@@ -312,6 +325,9 @@ class RouteViewModel: ObservableObject {
         isRouteActive = true
         isRouteReady = false
         errorMessage = nil
+
+        // Guardar estado para poder continuar después de cerrar la app
+        saveActiveRouteState()
 
         print("🚀 RouteViewModel: Ruta iniciada\(optimized ? " (optimizada)" : "") - \(route.name)")
         if locationService.isGeofencingAvailable() {
@@ -456,6 +472,7 @@ class RouteViewModel: ObservableObject {
         isRouteReady = false
         currentStop = nil
         visitedStopsCount = 0
+        currentHistoryId = nil
 
         // Limpiar datos de ruta calculada
         routePolylines = []
@@ -466,6 +483,9 @@ class RouteViewModel: ObservableObject {
         for index in stops.indices {
             stops[index].hasBeenVisited = false
         }
+
+        // Limpiar estado guardado
+        clearActiveRouteState()
 
         print("⏹️ RouteViewModel: Ruta finalizada")
     }
@@ -566,6 +586,103 @@ class RouteViewModel: ObservableObject {
             let distance = location.distance(from: nearestStop.location)
             if distance < 100 { // Menos de 100 metros
                 print("📍 Cerca de: \(nearestStop.name) - \(Int(distance))m")
+            }
+        }
+    }
+
+    // MARK: - Active Route Persistence
+
+    /// Guardar estado de ruta activa en UserDefaults
+    private func saveActiveRouteState() {
+        guard let route = currentRoute, let historyId = currentHistoryId else { return }
+
+        let state = ActiveRouteState(
+            routeId: route.id,
+            routeName: route.name,
+            routeCity: route.city,
+            historyId: historyId,
+            startedAt: Date(),
+            stops: stops.map { ActiveRouteState.StopState(stopId: $0.id, hasBeenVisited: $0.hasBeenVisited) }
+        )
+
+        if let encoded = try? JSONEncoder().encode(state) {
+            UserDefaults.standard.set(encoded, forKey: activeRouteStateKey)
+            print("💾 RouteViewModel: Estado de ruta guardado")
+        }
+    }
+
+    /// Limpiar estado de ruta activa de UserDefaults
+    private func clearActiveRouteState() {
+        UserDefaults.standard.removeObject(forKey: activeRouteStateKey)
+        print("🗑️ RouteViewModel: Estado de ruta limpiado")
+    }
+
+    /// Obtener estado de ruta activa guardado (si existe)
+    func getActiveRouteState() -> ActiveRouteState? {
+        guard let data = UserDefaults.standard.data(forKey: activeRouteStateKey),
+              let state = try? JSONDecoder().decode(ActiveRouteState.self, from: data) else {
+            return nil
+        }
+        return state
+    }
+
+    /// Limpiar ruta guardada (público)
+    func clearSavedRoute() {
+        clearActiveRouteState()
+    }
+
+    /// Restaurar ruta desde estado guardado
+    func restoreRoute(from state: ActiveRouteState, completion: @escaping (Bool) -> Void) {
+        print("🔄 RouteViewModel: Restaurando ruta - \(state.routeName)")
+
+        currentHistoryId = state.historyId
+
+        Task {
+            do {
+                // Buscar la ruta en las rutas disponibles
+                var route: Route?
+                if let existingRoute = availableRoutes.first(where: { $0.id == state.routeId }) {
+                    route = existingRoute
+                } else {
+                    // Cargar desde Firebase si no está en availableRoutes
+                    let routes = try await firebaseService.fetchAllRoutes()
+                    route = routes.first(where: { $0.id == state.routeId })
+                }
+
+                guard let foundRoute = route else {
+                    await MainActor.run {
+                        errorMessage = "No se pudo encontrar la ruta"
+                        completion(false)
+                    }
+                    return
+                }
+
+                // Cargar paradas
+                let fetchedStops = try await firebaseService.fetchStops(for: state.routeId)
+
+                await MainActor.run {
+                    // Restaurar estado
+                    self.currentRoute = foundRoute
+                    self.stops = fetchedStops
+
+                    // Restaurar estado de visitas
+                    for stopState in state.stops {
+                        if let index = self.stops.firstIndex(where: { $0.id == stopState.stopId }) {
+                            self.stops[index].hasBeenVisited = stopState.hasBeenVisited
+                        }
+                    }
+
+                    self.visitedStopsCount = self.stops.filter { $0.hasBeenVisited }.count
+
+                    print("✅ RouteViewModel: Ruta restaurada - \(fetchedStops.count) paradas")
+                    completion(true)
+                }
+
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "Error restaurando ruta: \(error.localizedDescription)"
+                    completion(false)
+                }
             }
         }
     }
