@@ -1,5 +1,5 @@
 //
-//  MapView.swift
+//  RouteMapView.swift
 //  AudioCityPOC
 //
 //  Vista del mapa con ubicación en tiempo real y controles de audio
@@ -8,7 +8,7 @@
 import SwiftUI
 import MapKit
 
-struct MapView: View {
+struct RouteMapView: View {
     @ObservedObject var viewModel: RouteViewModel
     @State private var region: MKCoordinateRegion
     @State private var showStopDetails = false
@@ -292,5 +292,5 @@ struct AudioWaveBar: View {
 
 #Preview {
     let viewModel = RouteViewModel()
-    return MapView(viewModel: viewModel)
+    return RouteMapView(viewModel: viewModel)
 }

@@ -16,7 +16,7 @@ struct RouteDetailView: View {
             ZStack {
                 if viewModel.isRouteActive {
                     // Mostrar mapa cuando la ruta está activa
-                    MapView(viewModel: viewModel)
+                    RouteMapView(viewModel: viewModel)
                 } else {
                     // Mostrar detalles de la ruta
                     ScrollView {
