@@ -10,7 +10,7 @@ import UIKit
 
 // MARK: - Image Cache Service
 
-class ImageCacheService {
+class ImageCacheService: ImageCacheServiceProtocol {
     static let shared = ImageCacheService()
 
     // Caché en memoria (rápido)

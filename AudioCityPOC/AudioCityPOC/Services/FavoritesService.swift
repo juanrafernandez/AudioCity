@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-class FavoritesService: ObservableObject {
+class FavoritesService: ObservableObject, FavoritesServiceProtocol {
 
     // MARK: - Published Properties
     @Published var favoriteRouteIds: Set<String> = []

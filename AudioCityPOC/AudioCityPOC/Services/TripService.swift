@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-class TripService: ObservableObject {
+class TripService: ObservableObject, TripServiceProtocol {
 
     // MARK: - Singleton
     static let shared = TripService()

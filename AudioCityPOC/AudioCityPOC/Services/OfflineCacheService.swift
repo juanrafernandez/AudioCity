@@ -9,7 +9,7 @@ import Foundation
 import MapKit
 import Combine
 
-class OfflineCacheService: ObservableObject {
+class OfflineCacheService: ObservableObject, OfflineCacheServiceProtocol {
 
     // MARK: - Published Properties
     @Published var cachedRoutes: [CachedRoute] = []

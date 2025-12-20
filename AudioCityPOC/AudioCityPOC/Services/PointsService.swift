@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-class PointsService: ObservableObject {
+class PointsService: ObservableObject, PointsServiceProtocol {
 
     // MARK: - Singleton
     static let shared = PointsService()

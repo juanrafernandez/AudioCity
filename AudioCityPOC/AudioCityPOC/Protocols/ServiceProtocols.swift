@@ -9,6 +9,7 @@ import Foundation
 import CoreLocation
 import Combine
 import MapKit
+import UIKit
 
 // MARK: - Location Service Protocol
 
@@ -193,4 +194,147 @@ final class AnyLocationService: LocationServiceProtocol {
     func clearNativeGeofences() { _clearNativeGeofences() }
     func extractStopId(from regionIdentifier: String) -> String? { _extractStopId(regionIdentifier) }
     func isGeofencingAvailable() -> Bool { _isGeofencingAvailable() }
+}
+
+// MARK: - Trip Service Protocol
+
+/// Protocolo para servicios de gestión de viajes
+protocol TripServiceProtocol: ObservableObject {
+    // MARK: - Published Properties
+    var trips: [Trip] { get }
+    var availableDestinations: [Destination] { get }
+    var isLoading: Bool { get }
+    var errorMessage: String? { get }
+
+    // MARK: - Methods
+    func createTrip(destinationCity: String, destinationCountry: String, startDate: Date?, endDate: Date?) -> Trip?
+    func addRoute(_ routeId: String, to tripId: String)
+    func removeRoute(_ routeId: String, from tripId: String)
+    func deleteTrip(_ tripId: String)
+    func updateTripDates(_ tripId: String, startDate: Date?, endDate: Date?)
+    func getTrips(for city: String) -> [Trip]
+    func getTrip(by id: String) -> Trip?
+    func loadAvailableDestinations() async
+}
+
+// MARK: - Points Service Protocol
+
+/// Protocolo para servicios de puntos y gamificación
+protocol PointsServiceProtocol: ObservableObject {
+    // MARK: - Published Properties
+    var stats: UserPointsStats { get }
+    var transactions: [PointsTransaction] { get }
+    var recentLevelUp: UserLevel? { get }
+
+    // MARK: - Methods
+    func awardPointsForCreatingRoute(routeId: String, routeName: String, stopsCount: Int)
+    func awardPointsForCompletingRoute(routeId: String, routeName: String)
+    func awardPointsForPublishingRoute(routeId: String, routeName: String)
+    func getRecentTransactions(limit: Int) -> [PointsTransaction]
+    func clearLevelUpNotification()
+}
+
+// MARK: - History Service Protocol
+
+/// Protocolo para servicios de historial de rutas
+protocol HistoryServiceProtocol: ObservableObject {
+    // MARK: - Published Properties
+    var history: [RouteHistory] { get }
+    var isLoading: Bool { get }
+
+    // MARK: - Methods
+    func startRoute(routeId: String, routeName: String, routeCity: String, totalStops: Int) -> RouteHistory
+    func updateProgress(historyId: String, stopsVisited: Int, distanceWalkedKm: Double)
+    func completeRoute(historyId: String)
+    func abandonRoute(historyId: String)
+    func deleteRecord(_ historyId: String)
+    func clearHistory()
+    func getStats() -> HistoryStats
+    func getCurrentRoute() -> RouteHistory?
+}
+
+// MARK: - User Routes Service Protocol
+
+/// Protocolo para servicios de rutas creadas por usuario
+protocol UserRoutesServiceProtocol: ObservableObject {
+    // MARK: - Published Properties
+    var userRoutes: [UserRoute] { get }
+    var isLoading: Bool { get }
+    var errorMessage: String? { get }
+
+    // MARK: - Methods
+    func createRoute(name: String, city: String, description: String, neighborhood: String) -> UserRoute
+    func updateRoute(_ route: UserRoute)
+    func deleteRoute(_ routeId: String)
+    func addStop(to routeId: String, stop: UserStop)
+    func removeStop(from routeId: String, stopId: String)
+    func reorderStops(in routeId: String, from source: IndexSet, to destination: Int)
+    func getRoute(by id: String) -> UserRoute?
+    func togglePublish(_ routeId: String)
+}
+
+// MARK: - Audio Preview Service Protocol
+
+/// Protocolo para servicios de preview de audio
+protocol AudioPreviewServiceProtocol: ObservableObject {
+    // MARK: - Published Properties
+    var isPlaying: Bool { get }
+    var isPaused: Bool { get }
+    var currentStopId: String? { get }
+
+    // MARK: - Methods
+    func playPreview(stopId: String, text: String)
+    func pause()
+    func resume()
+    func stop()
+    func isPlayingStop(_ stopId: String) -> Bool
+    func isPausedStop(_ stopId: String) -> Bool
+}
+
+// MARK: - Image Cache Service Protocol
+
+/// Protocolo para servicios de caché de imágenes
+protocol ImageCacheServiceProtocol {
+    func getImage(for url: URL) -> UIImage?
+    func saveImage(_ image: UIImage, for url: URL)
+    func loadImage(from url: URL) async -> UIImage?
+    func clearCache()
+    func diskCacheSize() -> Int64
+    func formattedCacheSize() -> String
+}
+
+// MARK: - Favorites Service Protocol
+
+/// Protocolo para servicios de favoritos
+protocol FavoritesServiceProtocol: ObservableObject {
+    // MARK: - Published Properties
+    var favoriteRouteIds: Set<String> { get }
+
+    // MARK: - Methods
+    func isFavorite(_ routeId: String) -> Bool
+    func addFavorite(_ routeId: String)
+    func removeFavorite(_ routeId: String)
+    func toggleFavorite(_ routeId: String)
+    func filterFavorites(from routes: [Route]) -> [Route]
+}
+
+// MARK: - Offline Cache Service Protocol
+
+/// Protocolo para servicios de caché offline
+protocol OfflineCacheServiceProtocol: ObservableObject {
+    // MARK: - Published Properties
+    var cachedRoutes: [CachedRoute] { get }
+    var downloadProgress: TripCacheProgress? { get }
+    var isDownloading: Bool { get }
+    var totalCacheSize: Int64 { get }
+
+    // MARK: - Methods
+    func downloadTrip(_ trip: Trip, routes: [Route], stops: [[Stop]]) async throws
+    func isRouteCached(routeId: String) -> Bool
+    func isTripFullyCached(trip: Trip) -> Bool
+    func getCachedRoute(routeId: String) -> CachedRoute?
+    func getCachedRoutes(for trip: Trip) -> [CachedRoute]
+    func deleteCache(for trip: Trip) throws
+    func clearAllCache() throws
+    func formattedCacheSize() -> String
 }

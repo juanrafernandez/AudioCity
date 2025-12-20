@@ -8,7 +8,7 @@
 import Foundation
 import Combine
 
-class HistoryService: ObservableObject {
+class HistoryService: ObservableObject, HistoryServiceProtocol {
 
     // MARK: - Singleton
     static let shared = HistoryService()

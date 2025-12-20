@@ -9,7 +9,7 @@ import Foundation
 import Combine
 import SwiftUI
 
-class UserRoutesService: ObservableObject {
+class UserRoutesService: ObservableObject, UserRoutesServiceProtocol {
 
     // MARK: - Singleton
     static let shared = UserRoutesService()

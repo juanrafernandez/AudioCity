@@ -12,7 +12,7 @@ import Combine
 
 /// Servicio singleton para reproducir previews de audio
 /// Completamente independiente del AudioService de la ruta activa
-class AudioPreviewService: NSObject, ObservableObject {
+class AudioPreviewService: NSObject, ObservableObject, AudioPreviewServiceProtocol {
 
     // MARK: - Singleton
     static let shared = AudioPreviewService()
