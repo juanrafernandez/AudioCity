@@ -20,7 +20,14 @@ class GeofenceService: ObservableObject, GeofenceServiceProtocol {
     private var monitoredStops: [Stop] = []
     private var cancellables = Set<AnyCancellable>()
     private let proximityThreshold: Double = 50 // metros extras para "nearby"
-    
+
+    // MARK: - Lifecycle
+
+    deinit {
+        cancellables.removeAll()
+        Log("GeofenceService deinit", level: .debug, category: .location)
+    }
+
     // MARK: - Public Methods
     
     /// Configurar geofences para una ruta

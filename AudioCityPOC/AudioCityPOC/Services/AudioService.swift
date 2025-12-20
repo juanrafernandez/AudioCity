@@ -41,11 +41,18 @@ class AudioService: NSObject, ObservableObject, AudioServiceProtocol {
     private var cachedVoice: AVSpeechSynthesisVoice?
 
     // MARK: - Initialization
+
     override init() {
         super.init()
         synthesizer.delegate = self
         setupAudioSession()
         selectBestVoice(for: "es-ES")
+    }
+
+    deinit {
+        synthesizer.stopSpeaking(at: .immediate)
+        synthesizer.delegate = nil
+        Log("AudioService deinit", level: .debug, category: .audio)
     }
 
     // MARK: - Setup

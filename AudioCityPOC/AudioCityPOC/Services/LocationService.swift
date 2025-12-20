@@ -29,11 +29,19 @@ class LocationService: NSObject, ObservableObject, LocationServiceProtocol {
     private let wakeUpRadius: CLLocationDistance = AppConstants.Geofencing.wakeUpRadiusMeters
     
     // MARK: - Initialization
+
     override init() {
         super.init()
         setupLocationManager()
     }
-    
+
+    deinit {
+        locationManager.delegate = nil
+        locationManager.stopUpdatingLocation()
+        cancellables.removeAll()
+        Log("LocationService deinit", level: .debug, category: .location)
+    }
+
     // MARK: - Setup
     private func setupLocationManager() {
         locationManager.delegate = self

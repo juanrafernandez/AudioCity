@@ -158,7 +158,8 @@ class NotificationService: NSObject, ObservableObject, NotificationServiceProtoc
         guard let url = URL(string: imageUrl) else { return }
 
         // Descargar imagen en background
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        // Captura explícita para evitar retención de self
+        URLSession.shared.dataTask(with: url) { [stopId] data, response, error in
             guard let data = data, error == nil else { return }
 
             // Guardar temporalmente

@@ -83,6 +83,13 @@ class RouteViewModel: ObservableObject {
         setupObservers()
     }
 
+    deinit {
+        cancellables.removeAll()
+        audioService.stop()
+        geofenceService.clearGeofences()
+        Log("RouteViewModel deinit", level: .debug, category: .route)
+    }
+
     // MARK: - Setup
 
     /// Configurar observadores de cambios

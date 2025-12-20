@@ -48,8 +48,15 @@ class ExploreViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initialization
+
     private init() {
         setupObservers()
+    }
+
+    deinit {
+        cancellables.removeAll()
+        audioService.stop()
+        Log("ExploreViewModel deinit", level: .debug, category: .app)
     }
 
     // MARK: - Setup

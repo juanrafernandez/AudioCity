@@ -25,11 +25,17 @@ class PointsService: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initialization
+
     init(repository: PointsRepositoryProtocol = PointsRepository()) {
         self.repository = repository
         loadData()
         checkAndResetDailyStats()
         setupEventSubscriptions()
+    }
+
+    deinit {
+        cancellables.removeAll()
+        Log("PointsService deinit", level: .debug, category: .points)
     }
 
     // MARK: - Event Subscriptions

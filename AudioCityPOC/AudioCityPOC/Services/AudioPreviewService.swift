@@ -27,10 +27,17 @@ class AudioPreviewService: NSObject, ObservableObject {
     private var cachedVoice: AVSpeechSynthesisVoice?
 
     // MARK: - Initialization
+
     private override init() {
         super.init()
         synthesizer.delegate = self
         selectBestVoice(for: "es-ES")
+    }
+
+    deinit {
+        synthesizer.stopSpeaking(at: .immediate)
+        synthesizer.delegate = nil
+        Log("AudioPreviewService deinit", level: .debug, category: .audio)
     }
 
     // MARK: - Voice Selection
