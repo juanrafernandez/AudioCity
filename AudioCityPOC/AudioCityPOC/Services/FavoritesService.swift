@@ -33,14 +33,14 @@ class FavoritesService: ObservableObject {
     func addFavorite(_ routeId: String) {
         favoriteRouteIds.insert(routeId)
         saveFavorites()
-        print("⭐ FavoritesService: Ruta añadida a favoritos - \(routeId)")
+        Log("Ruta añadida a favoritos - \(routeId)", level: .info, category: .app)
     }
 
     /// Eliminar ruta de favoritos
     func removeFavorite(_ routeId: String) {
         favoriteRouteIds.remove(routeId)
         saveFavorites()
-        print("⭐ FavoritesService: Ruta eliminada de favoritos - \(routeId)")
+        Log("Ruta eliminada de favoritos - \(routeId)", level: .info, category: .app)
     }
 
     /// Toggle favorito
@@ -67,9 +67,9 @@ class FavoritesService: ObservableObject {
     private func loadFavorites() {
         do {
             favoriteRouteIds = try repository.loadFavorites()
-            print("⭐ FavoritesService: \(favoriteRouteIds.count) favoritos cargados")
+            Log("\(favoriteRouteIds.count) favoritos cargados", level: .success, category: .app)
         } catch {
-            print("❌ FavoritesService: Error cargando favoritos - \(error.localizedDescription)")
+            Log("Error cargando favoritos - \(error.localizedDescription)", level: .error, category: .app)
             favoriteRouteIds = []
         }
     }
@@ -78,7 +78,7 @@ class FavoritesService: ObservableObject {
         do {
             try repository.saveFavorites(favoriteRouteIds)
         } catch {
-            print("❌ FavoritesService: Error guardando favoritos - \(error.localizedDescription)")
+            Log("Error guardando favoritos - \(error.localizedDescription)", level: .error, category: .app)
         }
     }
 }

@@ -85,7 +85,7 @@ final class RouteCalculationService: ObservableObject {
         currentCalculationId = calcId
 
         let totalSegments = allPoints.count - 1
-        print("🗺️ RouteCalculationService: Iniciando cálculo de \(totalSegments) segmentos...")
+        Log("Iniciando cálculo de \(totalSegments) segmentos...", level: .info, category: .route)
 
         calculateSegmentsSequentially(
             points: allPoints,
@@ -143,7 +143,7 @@ final class RouteCalculationService: ObservableObject {
     func cancelCalculation() {
         currentCalculationId = UUID()
         isCalculating = false
-        print("🗺️ RouteCalculationService: Cálculo cancelado")
+        Log("Cálculo cancelado", level: .info, category: .route)
     }
 
     // MARK: - Private Methods
@@ -160,7 +160,7 @@ final class RouteCalculationService: ObservableObject {
         func calculateSegment(index: Int) {
             // Verificar si el cálculo fue cancelado
             guard calcId == self.currentCalculationId else {
-                print("🗺️ RouteCalculationService: Cálculo \(calcId) cancelado")
+                Log("Cálculo \(calcId) cancelado", level: .debug, category: .route)
                 return
             }
 
@@ -171,7 +171,7 @@ final class RouteCalculationService: ObservableObject {
                     let result = RouteCalculationResult(polylines: polylines, distances: distances)
                     self.lastResult = result
                     let totalKm = result.totalDistanceFromUser / 1000
-                    print("🗺️ RouteCalculationService: ✅ Ruta completa - \(polylines.count) segmentos, \(String(format: "%.2f", totalKm)) km")
+                    Log("Ruta completa - \(polylines.count) segmentos, \(String(format: "%.2f", totalKm)) km", level: .success, category: .route)
                     completion(.success(result))
                 }
                 return
@@ -180,7 +180,7 @@ final class RouteCalculationService: ObservableObject {
             let origin = points[index]
             let destination = points[index + 1]
 
-            print("🗺️ RouteCalculationService: Calculando segmento \(index + 1)/\(totalSegments)")
+            Log("Calculando segmento \(index + 1)/\(totalSegments)", level: .debug, category: .route)
 
             let request = MKDirections.Request()
             let originLocation = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
@@ -198,7 +198,7 @@ final class RouteCalculationService: ObservableObject {
                     if let route = response?.routes.first {
                         polylines.append(route.polyline)
                         distances.append(route.distance)
-                        print("   ✅ Segmento \(index + 1) OK - \(Int(route.distance))m")
+                        Log("Segmento \(index + 1) OK - \(Int(route.distance))m", level: .debug, category: .route)
                     } else {
                         // Fallback: línea recta con distancia euclidiana
                         var coords = [origin, destination]
@@ -206,7 +206,7 @@ final class RouteCalculationService: ObservableObject {
                         polylines.append(straightLine)
                         let fallbackDistance = originLocation.distance(from: destLocation)
                         distances.append(fallbackDistance)
-                        print("   ⚠️ Segmento \(index + 1) fallback - ~\(Int(fallbackDistance))m")
+                        Log("Segmento \(index + 1) fallback - ~\(Int(fallbackDistance))m", level: .warning, category: .route)
                     }
 
                     // Siguiente segmento con pequeño delay para no saturar la API

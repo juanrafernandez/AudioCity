@@ -117,12 +117,10 @@ final class RouteOptimizationService {
         let wasOptimized = originalOrder != newOrder
 
         if wasOptimized {
-            print("🔄 RouteOptimizationService: Ruta optimizada")
-            print("   Original: \(originalOrder.prefix(3).joined(separator: " → "))...")
-            print("   Optimizada: \(newOrder.prefix(3).joined(separator: " → "))...")
-            print("   Distancia estimada: \(String(format: "%.2f", totalDistance / 1000)) km")
+            Log("Ruta optimizada - Original: \(originalOrder.prefix(3).joined(separator: " → "))... → Optimizada: \(newOrder.prefix(3).joined(separator: " → "))...", level: .info, category: .route)
+            Log("Distancia estimada: \(String(format: "%.2f", totalDistance / 1000)) km", level: .debug, category: .route)
         } else {
-            print("🔄 RouteOptimizationService: El orden original ya es óptimo")
+            Log("El orden original ya es óptimo", level: .info, category: .route)
         }
 
         return RouteOptimizationResult(
@@ -146,7 +144,7 @@ final class RouteOptimizationService {
         // Reordenar el array
         stops.sort { $0.order < $1.order }
 
-        print("🔄 RouteOptimizationService: Nuevo orden aplicado - \(stops.map { "\($0.order).\($0.name)" }.joined(separator: " → "))")
+        Log("Nuevo orden aplicado - \(stops.map { "\($0.order).\($0.name)" }.joined(separator: " → "))", level: .info, category: .route)
     }
 
     // MARK: - Private Methods
