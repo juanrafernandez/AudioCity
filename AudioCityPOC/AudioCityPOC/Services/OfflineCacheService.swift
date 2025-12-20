@@ -246,21 +246,42 @@ class OfflineCacheService: ObservableObject {
 }
 
 // MARK: - Errors
-enum CacheError: LocalizedError {
+enum CacheError: AppError {
     case invalidData
-    case downloadFailed
+    case downloadFailed(reason: String? = nil)
     case insufficientStorage
-    case fileSystemError
+    case fileSystemError(Error? = nil)
+
+    var code: String {
+        switch self {
+        case .invalidData: return "CAC001"
+        case .downloadFailed: return "CAC002"
+        case .insufficientStorage: return "CAC003"
+        case .fileSystemError: return "CAC004"
+        }
+    }
+
+    var isRecoverable: Bool {
+        switch self {
+        case .downloadFailed, .insufficientStorage:
+            return true
+        case .invalidData, .fileSystemError:
+            return false
+        }
+    }
 
     var errorDescription: String? {
         switch self {
         case .invalidData:
             return "Datos inválidos"
-        case .downloadFailed:
-            return "Error en la descarga"
+        case .downloadFailed(let reason):
+            return reason ?? "Error en la descarga"
         case .insufficientStorage:
-            return "Espacio insuficiente"
-        case .fileSystemError:
+            return "Espacio insuficiente en el dispositivo"
+        case .fileSystemError(let error):
+            if let error = error {
+                return "Error de sistema de archivos: \(error.localizedDescription)"
+            }
             return "Error de sistema de archivos"
         }
     }

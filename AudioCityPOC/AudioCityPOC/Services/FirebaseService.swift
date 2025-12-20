@@ -117,11 +117,30 @@ class FirebaseService: ObservableObject, FirebaseServiceProtocol {
 }
 
 // MARK: - Errors
-enum FirebaseError: LocalizedError {
+enum FirebaseError: AppError {
     case routeNotFound
     case stopsNotFound
     case decodingError
-    
+    case networkError(Error)
+
+    var code: String {
+        switch self {
+        case .routeNotFound: return "FB001"
+        case .stopsNotFound: return "FB002"
+        case .decodingError: return "FB003"
+        case .networkError: return "FB004"
+        }
+    }
+
+    var isRecoverable: Bool {
+        switch self {
+        case .networkError:
+            return true
+        case .routeNotFound, .stopsNotFound, .decodingError:
+            return false
+        }
+    }
+
     var errorDescription: String? {
         switch self {
         case .routeNotFound:
@@ -130,6 +149,8 @@ enum FirebaseError: LocalizedError {
             return "Paradas no encontradas"
         case .decodingError:
             return "Error decodificando datos"
+        case .networkError(let error):
+            return "Error de conexión: \(error.localizedDescription)"
         }
     }
 }

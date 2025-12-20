@@ -31,11 +31,25 @@ protocol StorageRepositoryProtocol {
 
 // MARK: - Storage Errors
 
-enum StorageError: Error, LocalizedError {
+enum StorageError: AppError {
     case encodingFailed(Error)
     case decodingFailed(Error)
     case notFound(String)
     case writeFailed(Error)
+
+    var code: String {
+        switch self {
+        case .encodingFailed: return "STO001"
+        case .decodingFailed: return "STO002"
+        case .notFound: return "STO003"
+        case .writeFailed: return "STO004"
+        }
+    }
+
+    var isRecoverable: Bool {
+        // Storage errors generally aren't recoverable by retry
+        return false
+    }
 
     var errorDescription: String? {
         switch self {
