@@ -69,7 +69,7 @@ final class RouteOptimizationService {
     /// - Parameters:
     ///   - stops: Lista de paradas a optimizar
     ///   - startLocation: Ubicación desde donde empezar (normalmente la del usuario)
-    /// - Returns: Resultado de la optimización con las paradas reordenadas
+    /// - Returns: Resultado de la optimización con las paradas en nuevo orden (sin modificar .order)
     func optimizeRoute(stops: [Stop], startLocation: CLLocation) -> RouteOptimizationResult {
         guard !stops.isEmpty else {
             return RouteOptimizationResult(
@@ -100,10 +100,8 @@ final class RouteOptimizationService {
             let distanceToNearest = currentLocation.distance(from: nearestStop.location)
             totalDistance += distanceToNearest
 
-            // Crear copia con nuevo orden
-            var optimizedStop = nearestStop
-            optimizedStop.order = optimizedStops.count + 1
-            optimizedStops.append(optimizedStop)
+            // Añadir parada sin modificar (Stop es inmutable)
+            optimizedStops.append(nearestStop)
 
             // Mover ubicación actual al punto seleccionado
             currentLocation = nearestStop.location
@@ -130,21 +128,13 @@ final class RouteOptimizationService {
         )
     }
 
-    /// Aplica el resultado de optimización a un array de paradas (modifica in-place los órdenes)
+    /// Aplica el resultado de optimización a RouteStopsState
     /// - Parameters:
-    ///   - stops: Array de paradas a modificar (inout)
+    ///   - stopsState: Estado de paradas a actualizar
     ///   - optimizationResult: Resultado de la optimización
-    func applyOptimization(to stops: inout [Stop], from optimizationResult: RouteOptimizationResult) {
-        for optimizedStop in optimizationResult.optimizedStops {
-            if let index = stops.firstIndex(where: { $0.id == optimizedStop.id }) {
-                stops[index].order = optimizedStop.order
-            }
-        }
-
-        // Reordenar el array
-        stops.sort { $0.order < $1.order }
-
-        Log("Nuevo orden aplicado - \(stops.map { "\($0.order).\($0.name)" }.joined(separator: " → "))", level: .info, category: .route)
+    func applyOptimization(to stopsState: RouteStopsState, from optimizationResult: RouteOptimizationResult) {
+        stopsState.reorder(optimizedStops: optimizationResult.optimizedStops)
+        Log("Nuevo orden aplicado via RouteStopsState", level: .info, category: .route)
     }
 
     // MARK: - Private Methods
@@ -165,7 +155,7 @@ protocol RouteOptimizationServiceProtocol {
     func shouldSuggestOptimization(stops: [Stop], userLocation: CLLocation) -> Bool
     func getNearestStopInfo(stops: [Stop], userLocation: CLLocation) -> (name: String, distance: Int, originalOrder: Int)?
     func optimizeRoute(stops: [Stop], startLocation: CLLocation) -> RouteOptimizationResult
-    func applyOptimization(to stops: inout [Stop], from optimizationResult: RouteOptimizationResult)
+    func applyOptimization(to stopsState: RouteStopsState, from optimizationResult: RouteOptimizationResult)
 }
 
 extension RouteOptimizationService: RouteOptimizationServiceProtocol {}

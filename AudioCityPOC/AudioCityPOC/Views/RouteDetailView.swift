@@ -123,7 +123,7 @@ struct RouteDetailView: View {
 
             VStack(spacing: 8) {
                 ForEach(viewModel.stops) { stop in
-                    StopRow(stop: stop, isVisited: stop.hasBeenVisited)
+                    StopRow(stop: stop, isVisited: viewModel.stopsState.isVisited(stop.id))
                 }
             }
         }

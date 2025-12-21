@@ -92,15 +92,20 @@ protocol FirebaseServiceProtocol: ObservableObject {
 /// Detecta cuando el usuario entra en el radio de una parada
 protocol GeofenceServiceProtocol: ObservableObject {
     // MARK: - Published Properties
-    var triggeredStop: Stop? { get }
-    var triggeredStops: [Stop] { get }
+    var triggeredStopId: String? { get }
+    var triggeredStopIds: [String] { get }
     var nearbyStops: [Stop] { get }
 
+    // Compatibilidad
+    var triggeredStop: Stop? { get }
+
     // MARK: - Methods
-    func setupGeofences(for stops: [Stop], locationService: LocationService)
+    func setupGeofences(for stops: [Stop], locationService: LocationService, stopsState: RouteStopsState)
+    func setupGeofences(for stops: [Stop], locationService: LocationService) // Legacy
     func clearGeofences()
     func getNextStop() -> Stop?
     func getProgress() -> Double
+    func getStop(byId id: String) -> Stop?
 }
 
 // MARK: - Notification Service Protocol

@@ -33,7 +33,7 @@ struct RouteMapView: View {
                 MapAnnotation(coordinate: stop.coordinate) {
                     StopAnnotationView(
                         stop: stop,
-                        isVisited: stop.hasBeenVisited,
+                        isVisited: viewModel.stopsState.isVisited(stop.id),
                         isCurrent: viewModel.currentStop?.id == stop.id
                     )
                 }

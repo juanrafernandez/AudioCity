@@ -592,7 +592,7 @@ struct RouteDetailContentV2: View {
                     StopRowV2(
                         stop: stop,
                         number: index + 1,
-                        isVisited: stop.hasBeenVisited,
+                        isVisited: viewModel.stopsState.isVisited(stop.id),
                         distanceToNext: isLast ? nil : distanceCalculator.formattedSegmentDistance(at: index)
                     )
                 }

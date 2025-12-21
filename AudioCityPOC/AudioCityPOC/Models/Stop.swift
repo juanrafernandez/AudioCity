@@ -6,10 +6,10 @@
 import Foundation
 import CoreLocation
 
-struct Stop: Identifiable, Codable {
+struct Stop: Identifiable, Codable, Hashable {
     let id: String
     let routeId: String
-    var order: Int  // var para permitir reordenación de ruta
+    let order: Int  // Inmutable - reordenación via RouteStopsState.stopOrder
     let name: String
     let description: String
     let latitude: Double
@@ -19,8 +19,8 @@ struct Stop: Identifiable, Codable {
     let scriptEs: String
     let funFact: String?
     let imageUrl: String?
-    var hasBeenVisited: Bool
     let category: String
+    // ELIMINADO: var hasBeenVisited: Bool - ahora gestionado por RouteStopsState
 
     enum CodingKeys: String, CodingKey {
         case id, name, description, latitude, longitude, order, category
@@ -48,7 +48,7 @@ struct Stop: Identifiable, Codable {
         funFact = try container.decodeIfPresent(String.self, forKey: .funFact)
         imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
         category = try container.decodeIfPresent(String.self, forKey: .category) ?? "general"
-        hasBeenVisited = false // Siempre inicia en false, no viene de Firebase
+        // hasBeenVisited eliminado - estado gestionado por RouteStopsState
     }
     
     var coordinate: CLLocationCoordinate2D {

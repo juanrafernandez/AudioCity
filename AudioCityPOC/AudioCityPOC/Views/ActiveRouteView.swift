@@ -111,7 +111,7 @@ struct ActiveRouteView: View {
         .onChange(of: viewModel.locationService.userLocation) { _, location in
             handleLocationUpdate(location)
         }
-        .onChange(of: viewModel.stops.map { $0.hasBeenVisited }) { _, _ in
+        .onChange(of: viewModel.stopsState.visitedStopIds) { _, _ in
             updateNextStop()
         }
     }
@@ -517,7 +517,7 @@ struct ActiveRouteView: View {
                     .fill(dotColor(for: stop))
                     .frame(width: nextStop?.id == stop.id ? 14 : 10, height: nextStop?.id == stop.id ? 14 : 10)
                     .overlay {
-                        if stop.hasBeenVisited {
+                        if viewModel.stopsState.isVisited(stop.id) {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 6, weight: .bold))
                                 .foregroundColor(.white)
@@ -527,7 +527,7 @@ struct ActiveRouteView: View {
 
                 if stop.order < viewModel.stops.count {
                     Rectangle()
-                        .fill(stop.hasBeenVisited ? ACColors.success : ACColors.border)
+                        .fill(viewModel.stopsState.isVisited(stop.id) ? ACColors.success : ACColors.border)
                         .frame(height: 2)
                 }
             }
@@ -535,7 +535,7 @@ struct ActiveRouteView: View {
     }
 
     private func dotColor(for stop: Stop) -> Color {
-        if stop.hasBeenVisited {
+        if viewModel.stopsState.isVisited(stop.id) {
             return ACColors.success
         } else if nextStop?.id == stop.id {
             return ACColors.primary
@@ -612,7 +612,7 @@ struct ActiveRouteView: View {
                                 let isLast = index == sortedStops.count - 1
                                 StopListRow(
                                     stop: stop,
-                                    isVisited: stop.hasBeenVisited,
+                                    isVisited: viewModel.stopsState.isVisited(stop.id),
                                     isNext: nextStop?.id == stop.id,
                                     isCurrent: viewModel.currentStop?.id == stop.id,
                                     distanceToNext: isLast ? nil : viewModel.formattedSegmentDistance(at: index + 1)
@@ -635,7 +635,7 @@ struct ActiveRouteView: View {
     // MARK: - Helpers
 
     private func stopState(for stop: Stop) -> StopMapPin.PinState {
-        if stop.hasBeenVisited {
+        if viewModel.stopsState.isVisited(stop.id) {
             return .visited
         } else if nextStop?.id == stop.id {
             return .next
@@ -645,10 +645,7 @@ struct ActiveRouteView: View {
     }
 
     private func updateNextStop() {
-        nextStop = viewModel.stops
-            .filter { !$0.hasBeenVisited }
-            .sorted(by: { $0.order < $1.order })
-            .first
+        nextStop = viewModel.stopsState.nextStop
     }
 
     @State private var lastRouteUpdateTime: Date = .distantPast

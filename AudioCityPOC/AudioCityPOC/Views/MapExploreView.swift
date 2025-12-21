@@ -218,7 +218,7 @@ struct MapExploreView: View {
                 handleActiveRouteLocationUpdate(location)
             }
         }
-        .onChange(of: activeRouteViewModel?.stops.map { $0.hasBeenVisited } ?? []) { _, _ in
+        .onChange(of: activeRouteViewModel?.stopsState.visitedStopIds) { _, _ in
             updateNextStop()
         }
         .onChange(of: activeRouteViewModel?.isRouteActive) { _, isActive in
@@ -346,7 +346,7 @@ struct MapExploreView: View {
                 Annotation(stop.name, coordinate: stop.coordinate) {
                     ActiveRouteStopMarker(
                         stop: stop,
-                        isVisited: stop.hasBeenVisited,
+                        isVisited: activeRouteViewModel?.stopsState.isVisited(stop.id) ?? false,
                         isNext: nextStop?.id == stop.id
                     )
                     .onTapGesture {
@@ -596,10 +596,7 @@ struct MapExploreView: View {
             nextStop = nil
             return
         }
-        nextStop = vm.stops
-            .filter { !$0.hasBeenVisited }
-            .sorted(by: { $0.order < $1.order })
-            .first
+        nextStop = vm.stopsState.nextStop
     }
 
     private func handleActiveRouteLocationUpdate(_ location: CLLocation?) {

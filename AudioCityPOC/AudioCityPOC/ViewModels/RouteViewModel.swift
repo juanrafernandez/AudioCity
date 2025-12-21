@@ -16,7 +16,7 @@ class RouteViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var availableRoutes: [Route] = []  // Lista de rutas disponibles
     @Published var currentRoute: Route?
-    @Published var stops: [Stop] = []
+    @Published var stops: [Stop] = []  // Paradas originales (inmutables)
     @Published var isRouteActive = false
     @Published var isRouteReady = false  // True cuando la ruta está calculada y lista para mostrar
     @Published var currentStop: Stop?
@@ -29,6 +29,9 @@ class RouteViewModel: ObservableObject {
     @Published var routePolylines: [MKPolyline] = []
     @Published var routeDistances: [CLLocationDistance] = []
     @Published var distanceToNextStop: CLLocationDistance = 0
+
+    // MARK: - Stops State (estado de visitas y orden)
+    let stopsState = RouteStopsState()
 
     /// Distancia total de la ruta (suma de todos los segmentos excepto usuario→primera parada)
     var totalRouteDistance: CLLocationDistance {
@@ -94,11 +97,13 @@ class RouteViewModel: ObservableObject {
 
     /// Configurar observadores de cambios
     private func setupObservers() {
-        // Observar cambios en paradas activadas
-        geofenceService.$triggeredStop
+        // Observar cambios en paradas activadas (por ID)
+        geofenceService.$triggeredStopId
             .compactMap { $0 }
-            .sink { [weak self] stop in
-                self?.handleStopTriggered(stop)
+            .sink { [weak self] stopId in
+                guard let self = self,
+                      let stop = self.stops.first(where: { $0.id == stopId }) else { return }
+                self.handleStopTriggered(stop)
             }
             .store(in: &cancellables)
 
@@ -286,7 +291,7 @@ class RouteViewModel: ObservableObject {
         }
 
         let result = routeOptimizationService.optimizeRoute(stops: stops, startLocation: userLocation)
-        routeOptimizationService.applyOptimization(to: &stops, from: result)
+        routeOptimizationService.applyOptimization(to: stopsState, from: result)
     }
 
     /// Iniciar ruta (con opción de optimizar)
@@ -303,6 +308,9 @@ class RouteViewModel: ObservableObject {
             errorMessage = "Se necesitan permisos de ubicación para continuar"
             return
         }
+
+        // Inicializar estado de paradas
+        stopsState.initialize(with: stops)
 
         // Optimizar ruta si se solicitó
         if optimized {
@@ -324,7 +332,7 @@ class RouteViewModel: ObservableObject {
         // Iniciar servicios con GPS de alta precisión (ruta activa)
         locationService.enableHighAccuracyMode()
         locationService.startTracking()
-        geofenceService.setupGeofences(for: stops, locationService: locationService)
+        geofenceService.setupGeofences(for: stops, locationService: locationService, stopsState: stopsState)
 
         // Registrar geofences nativos para wake-up (funciona con app suspendida)
         let stopsForGeofence = stops.map { (id: $0.id, latitude: $0.latitude, longitude: $0.longitude) }
@@ -354,9 +362,8 @@ class RouteViewModel: ObservableObject {
     private func startLiveActivity() {
         guard let route = currentRoute else { return }
 
-        // Obtener próxima parada
-        let nextStop = stops.filter { !$0.hasBeenVisited }.sorted { $0.order < $1.order }.first
-        guard let next = nextStop else { return }
+        // Obtener próxima parada (usando stopsState)
+        guard let next = stopsState.nextStop else { return }
 
         LiveActivityServiceWrapper.shared.startActivity(
             routeId: route.id,
@@ -371,10 +378,8 @@ class RouteViewModel: ObservableObject {
 
     /// Actualizar Live Activity con nueva información
     func updateLiveActivity() {
-        // Obtener próxima parada
-        let nextStop = stops.filter { !$0.hasBeenVisited }.sorted { $0.order < $1.order }.first
-
-        guard let next = nextStop else {
+        // Obtener próxima parada (usando stopsState)
+        guard let next = stopsState.nextStop else {
             // No hay más paradas, finalizar Live Activity
             LiveActivityServiceWrapper.shared.endActivity(showFinalState: true)
             return
@@ -384,7 +389,7 @@ class RouteViewModel: ObservableObject {
             distanceToNextStop: distanceToNextStop,
             nextStopName: next.name,
             nextStopOrder: next.order,
-            visitedStops: getVisitedCount(),
+            visitedStops: stopsState.visitedCount,
             totalStops: stops.count,
             isPlaying: audioService.isPlaying
         )
@@ -490,9 +495,7 @@ class RouteViewModel: ObservableObject {
         distanceToNextStop = 0
 
         // Resetear estado de visita de paradas
-        for index in stops.indices {
-            stops[index].hasBeenVisited = false
-        }
+        stopsState.reset()
 
         // Limpiar estado guardado
         clearActiveRouteState()
@@ -523,24 +526,19 @@ class RouteViewModel: ObservableObject {
 
     /// Obtener progreso de la ruta (0.0 - 1.0)
     func getProgress() -> Double {
-        guard !stops.isEmpty else { return 0 }
-        let visited = stops.filter { $0.hasBeenVisited }.count
-        return Double(visited) / Double(stops.count)
+        return stopsState.progress
     }
 
     /// Obtener número de paradas visitadas
     func getVisitedCount() -> Int {
-        return stops.filter { $0.hasBeenVisited }.count
+        return stopsState.visitedCount
     }
 
     // MARK: - Private Methods
 
     /// Manejar parada activada por geofencing
     private func handleStopTriggered(_ stop: Stop) {
-        // Actualizar estado de la parada en el array
-        if let index = stops.firstIndex(where: { $0.id == stop.id }) {
-            stops[index].hasBeenVisited = true
-        }
+        // Nota: La parada ya fue marcada como visitada por GeofenceService via stopsState
 
         // Actualizar parada actual (si no hay ninguna reproduciéndose)
         if currentStop == nil || !audioService.isPlaying {
@@ -548,7 +546,7 @@ class RouteViewModel: ObservableObject {
         }
 
         // Actualizar contador de visitadas
-        visitedStopsCount = getVisitedCount()
+        visitedStopsCount = stopsState.visitedCount
 
         // Mostrar notificación local
         notificationService.showStopArrivalNotification(stop: stop)
@@ -580,8 +578,8 @@ class RouteViewModel: ObservableObject {
     private func updateNearestStop(for location: CLLocation) {
         guard !stops.isEmpty else { return }
 
-        // Encontrar parada más cercana no visitada
-        let unvisitedStops = stops.filter { !$0.hasBeenVisited }
+        // Encontrar parada más cercana no visitada (usando stopsState)
+        let unvisitedStops = stopsState.unvisitedStops
         guard !unvisitedStops.isEmpty else { return }
 
         let nearest = unvisitedStops.min { stop1, stop2 in
@@ -612,7 +610,7 @@ class RouteViewModel: ObservableObject {
             routeCity: route.city,
             historyId: historyId,
             startedAt: Date(),
-            stops: stops.map { ActiveRouteState.StopState(stopId: $0.id, hasBeenVisited: $0.hasBeenVisited) }
+            stopsState: stopsState
         )
 
         if let encoded = try? JSONEncoder().encode(state) {
@@ -675,14 +673,16 @@ class RouteViewModel: ObservableObject {
                     self.currentRoute = foundRoute
                     self.stops = fetchedStops
 
-                    // Restaurar estado de visitas
-                    for stopState in state.stops {
-                        if let index = self.stops.firstIndex(where: { $0.id == stopState.stopId }) {
-                            self.stops[index].hasBeenVisited = stopState.hasBeenVisited
-                        }
-                    }
+                    // Inicializar stopsState con las paradas
+                    self.stopsState.initialize(with: fetchedStops)
 
-                    self.visitedStopsCount = self.stops.filter { $0.hasBeenVisited }.count
+                    // Restaurar estado de visitas y orden
+                    self.stopsState.restore(
+                        visitedIds: Set(state.visitedStopIds),
+                        order: state.stopOrder.isEmpty ? nil : state.stopOrder
+                    )
+
+                    self.visitedStopsCount = self.stopsState.visitedCount
 
                     Log("Ruta restaurada - \(fetchedStops.count) paradas", level: .success, category: .route)
                     completion(true)
