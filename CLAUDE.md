@@ -22,19 +22,82 @@ Plataforma de turismo con audioguías geolocalizadas estilo **Wikiloc**. El usua
 - SharedPreferences/Room para persistencia
 - **Deberá implementar:** Notificaciones persistentes para ruta activa (equivalente a Live Activities)
 
+## Arquitectura de Inyección de Dependencias
+
+### Principios
+- **Sin Singletons en servicios de negocio** - Todos los servicios se acceden via @EnvironmentObject
+- **DependencyContainer único** - Creado en AudioCityPOCApp, proporciona todas las instancias
+- **Modelo Stop inmutable** - El estado de visita se gestiona via RouteStopsState
+
+### Inyección en App Root
+```swift
+@main
+struct AudioCityPOCApp: App {
+    @StateObject private var container = DependencyContainer()
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(container)
+                .environmentObject(container.tripService)
+                .environmentObject(container.pointsService)
+                .environmentObject(container.historyService)
+                .environmentObject(container.exploreViewModel)
+                // ... otros servicios
+        }
+    }
+}
+```
+
+### Acceso en Vistas
+```swift
+struct MyView: View {
+    @EnvironmentObject private var tripService: TripService
+    @EnvironmentObject private var container: DependencyContainer
+
+    var body: some View {
+        // Uso directo del servicio
+        Text("\(tripService.trips.count) viajes")
+
+        // O via container para servicios no-ObservableObject
+        CachedAsyncImage(url: url) // Usa container.imageCacheService internamente
+    }
+}
+```
+
+### Servicios Inyectados via @EnvironmentObject
+- **TripService** - Gestión de viajes
+- **PointsService** - Gamificación y puntos
+- **HistoryService** - Historial de rutas
+- **UserRoutesService** - Rutas creadas por usuario
+- **AudioPreviewService** - Preview de audio en cards
+- **NotificationService** - Notificaciones locales
+- **FavoritesService** - Rutas favoritas
+- **ExploreViewModel** - Estado del mapa de exploración
+- **RouteStopsState** - Estado de paradas visitadas
+
+### Singletons Aceptados (Infraestructura)
+- **LoggingService.shared** - Logging global
+- **ErrorHandler.shared** - Manejo de errores
+- **EventBus.shared** - Comunicación entre servicios
+- **LiveActivityServiceWrapper.shared** - ActivityKit
+
 ## Estructura del Proyecto
 
 ```
 AudioCityPOC/
 ├── Models/
 │   ├── Route.swift              # Ruta con metadatos y thumbnailUrl
-│   ├── Stop.swift               # Parada con script de audio
+│   ├── Stop.swift               # Parada inmutable con script de audio
+│   ├── RouteStopsState.swift    # Estado runtime de paradas visitadas
 │   ├── Trip.swift               # Viaje planificado por usuario
 │   ├── CachedRoute.swift        # Ruta guardada para offline
 │   ├── UserRoute.swift          # Ruta creada por usuario (UGC)
 │   ├── RouteHistory.swift       # Historial de rutas completadas
 │   ├── Points.swift             # Sistema de puntos y niveles
 │   └── RouteActivityAttributes.swift  # Atributos para Live Activity
+├── DI/
+│   └── DependencyContainer.swift # Contenedor de dependencias (singleton-free)
 ├── Services/
 │   ├── LocationService.swift    # Geolocalización + geofences nativos
 │   ├── GeofenceService.swift    # Detección de paradas por proximidad
@@ -55,7 +118,12 @@ AudioCityPOC/
 │   └── LiveActivityService.swift # Gestión de Dynamic Island
 ├── ViewModels/
 │   ├── RouteViewModel.swift     # Orquesta servicios para rutas
-│   └── ExploreViewModel.swift   # Mapa de exploración (Singleton)
+│   ├── ExploreViewModel.swift   # Mapa de exploración (@EnvironmentObject)
+│   ├── RouteDiscoveryViewModel.swift  # Catálogo de rutas disponibles
+│   ├── ActiveRouteViewModel.swift     # Orquestador de ruta activa
+│   ├── RouteProgressManager.swift     # Progreso y audio de ruta
+│   ├── RouteNavigationManager.swift   # Cálculo de ruta y navegación
+│   └── LiveActivityManager.swift      # Gestión de Dynamic Island
 ├── Views/
 │   ├── SplashView.swift
 │   ├── MainTabView.swift        # 5 tabs con orden: Rutas, Viajes, Explorar, Crear, Perfil
