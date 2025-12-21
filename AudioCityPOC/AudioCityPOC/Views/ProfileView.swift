@@ -12,12 +12,20 @@ struct ProfileView: View {
     @StateObject private var locationService = LocationService()
     @EnvironmentObject private var pointsService: PointsService
     @EnvironmentObject private var historyService: HistoryService
+    @EnvironmentObject private var authService: AuthService
     @State private var showingPointsHistory = false
+    @State private var showingLogoutConfirmation = false
+    @State private var showingDeleteAccountConfirmation = false
+    @State private var isLoggingOut = false
+    @State private var isDeletingAccount = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: ACSpacing.sectionSpacing) {
+                    // Sección de cuenta de usuario
+                    accountSection
+
                     // Sección de puntos y nivel
                     pointsSection
 
@@ -46,6 +54,22 @@ struct ProfileView: View {
             .sheet(isPresented: $showingPointsHistory) {
                 PointsHistoryView()
             }
+            .alert("Cerrar sesión", isPresented: $showingLogoutConfirmation) {
+                Button("Cancelar", role: .cancel) {}
+                Button("Cerrar sesión", role: .destructive) {
+                    logout()
+                }
+            } message: {
+                Text("¿Estás seguro de que quieres cerrar sesión?")
+            }
+            .alert("Eliminar cuenta", isPresented: $showingDeleteAccountConfirmation) {
+                Button("Cancelar", role: .cancel) {}
+                Button("Eliminar cuenta", role: .destructive) {
+                    deleteAccount()
+                }
+            } message: {
+                Text("Esta acción es irreversible. Se eliminarán todos tus datos, rutas creadas, historial y puntos.")
+            }
         }
         .onAppear {
             if locationService.authorizationStatus == .notDetermined {
@@ -60,6 +84,121 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Account Section
+    private var accountSection: some View {
+        VStack(spacing: ACSpacing.lg) {
+            // Información del usuario
+            HStack(alignment: .center, spacing: ACSpacing.lg) {
+                // Avatar
+                ZStack {
+                    Circle()
+                        .fill(ACColors.primaryLight)
+                        .frame(width: 80, height: 80)
+
+                    if let photoURL = authService.currentUser?.photoURL,
+                       let url = URL(string: photoURL) {
+                        AsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 36))
+                                .foregroundColor(ACColors.primary)
+                        }
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
+                    } else {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 36))
+                            .foregroundColor(ACColors.primary)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: ACSpacing.xs) {
+                    Text(authService.currentUser?.displayName ?? "Usuario")
+                        .font(ACTypography.headlineLarge)
+                        .foregroundColor(ACColors.textPrimary)
+
+                    if let email = authService.currentUser?.email {
+                        Text(email)
+                            .font(ACTypography.bodySmall)
+                            .foregroundColor(ACColors.textSecondary)
+                    }
+
+                    // Proveedor de autenticación
+                    HStack(spacing: ACSpacing.xs) {
+                        Image(systemName: providerIcon)
+                            .font(.system(size: 12))
+                        Text(providerName)
+                            .font(ACTypography.caption)
+                    }
+                    .foregroundColor(ACColors.textTertiary)
+                }
+
+                Spacer()
+            }
+
+            // Botones de acción
+            VStack(spacing: ACSpacing.sm) {
+                // Cerrar sesión
+                Button(action: { showingLogoutConfirmation = true }) {
+                    HStack {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .foregroundColor(ACColors.warning)
+                        Text("Cerrar sesión")
+                            .font(ACTypography.labelMedium)
+                            .foregroundColor(ACColors.textPrimary)
+                        Spacer()
+                        if isLoggingOut {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12))
+                                .foregroundColor(ACColors.textTertiary)
+                        }
+                    }
+                    .padding(ACSpacing.md)
+                    .background(ACColors.background)
+                    .cornerRadius(ACRadius.md)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .disabled(isLoggingOut)
+
+                // Eliminar cuenta
+                Button(action: { showingDeleteAccountConfirmation = true }) {
+                    HStack {
+                        Image(systemName: "trash")
+                            .foregroundColor(ACColors.error)
+                        Text("Eliminar cuenta")
+                            .font(ACTypography.labelMedium)
+                            .foregroundColor(ACColors.error)
+                        Spacer()
+                        if isDeletingAccount {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12))
+                                .foregroundColor(ACColors.textTertiary)
+                        }
+                    }
+                    .padding(ACSpacing.md)
+                    .background(ACColors.background)
+                    .cornerRadius(ACRadius.md)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .disabled(isDeletingAccount)
+            }
+        }
+        .padding(ACSpacing.cardPadding)
+        .background(ACColors.surface)
+        .cornerRadius(ACRadius.lg)
+        .acShadow(ACShadow.sm)
+        .padding(.horizontal, ACSpacing.containerPadding)
     }
 
     // MARK: - Points Section
@@ -429,6 +568,58 @@ struct ProfileView: View {
             return .inactive
         @unknown default:
             return .inactive
+        }
+    }
+
+    private var providerIcon: String {
+        guard let provider = authService.currentUser?.authProvider else {
+            return "person.circle"
+        }
+        switch provider {
+        case .apple:
+            return "apple.logo"
+        case .google:
+            return "g.circle"
+        case .email:
+            return "envelope.fill"
+        }
+    }
+
+    private var providerName: String {
+        guard let provider = authService.currentUser?.authProvider else {
+            return "Cuenta"
+        }
+        switch provider {
+        case .apple:
+            return "Apple"
+        case .google:
+            return "Google"
+        case .email:
+            return "Email"
+        }
+    }
+
+    // MARK: - Actions
+
+    private func logout() {
+        isLoggingOut = true
+        do {
+            try authService.signOut()
+        } catch {
+            Log("Error al cerrar sesión: \(error.localizedDescription)", level: .error, category: .auth)
+        }
+        isLoggingOut = false
+    }
+
+    private func deleteAccount() {
+        isDeletingAccount = true
+        Task {
+            do {
+                try await authService.deleteAccount()
+            } catch {
+                Log("Error al eliminar cuenta: \(error.localizedDescription)", level: .error, category: .auth)
+            }
+            isDeletingAccount = false
         }
     }
 }

@@ -91,6 +91,16 @@ final class DependencyContainer: ObservableObject {
         OfflineCacheService()
     }()
 
+    /// Servicio de autenticación
+    private(set) lazy var authService: AuthService = {
+        AuthService()
+    }()
+
+    /// Servicio de almacenamiento (Firebase Storage)
+    private(set) lazy var storageService: StorageService = {
+        StorageService()
+    }()
+
     /// Servicio de cálculo de rutas
     private(set) lazy var routeCalculationService: RouteCalculationService = {
         RouteCalculationService()

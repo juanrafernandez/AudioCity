@@ -42,6 +42,7 @@ enum LogCategory: String {
     case ui = "UI"
     case network = "Network"
     case liveActivity = "LiveActivity"
+    case auth = "Auth"
 }
 
 // MARK: - Logging Service
@@ -65,7 +66,7 @@ final class LoggingService {
 
     private init() {
         // Pre-crear loggers para cada categoría
-        for category in [LogCategory.app, .location, .audio, .firebase, .route, .cache, .points, .history, .trips, .ui, .network, .liveActivity] {
+        for category in [LogCategory.app, .location, .audio, .firebase, .route, .cache, .points, .history, .trips, .ui, .network, .liveActivity, .auth] {
             loggers[category] = Logger(subsystem: subsystem, category: category.rawValue)
         }
     }

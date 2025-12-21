@@ -41,10 +41,11 @@ struct AudioCityPOCApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AuthContainerView()
                 .preferredColorScheme(.light)  // Forzar modo claro - el sistema de diseño está optimizado para light mode
                 // Inyectar todas las dependencias en el environment
                 .environmentObject(container)
+                .environmentObject(container.authService)
                 .environmentObject(container.tripService)
                 .environmentObject(container.pointsService)
                 .environmentObject(container.historyService)
@@ -56,6 +57,7 @@ struct AudioCityPOCApp: App {
                 .environmentObject(container.routeStopsState)
                 .environmentObject(container.routeDiscoveryViewModel)
                 .environmentObject(container.activeRouteViewModel)
+                .environmentObject(container.storageService)
                 .onChange(of: scenePhase) { oldPhase, newPhase in
                     if newPhase == .background {
                         // La app pasa a background - terminar Live Activity

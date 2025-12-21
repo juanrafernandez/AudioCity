@@ -2,10 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.294754708542-ok6sb8a285nrflrsnmm2qtpgbj8v1tfg</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>Google Sign-In</string>
+		</dict>
+	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
 	<true/>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>AudioCity necesita acceso al reconocimiento de voz para transcribir las narraciones de tus paradas mediante dictado.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AudioCity necesita acceso al micrófono para grabar las narraciones de tus paradas mediante dictado.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
