@@ -2,14 +2,13 @@
 //  ActiveRouteMiniPlayer.swift
 //  AudioCityPOC
 //
-//  Mini player flotante que aparece en todas las tabs cuando hay una ruta activa
-//  Diseño estilo Transit: compacto, informativo, con números destacados
+//  Mini player flotante usando ActiveRouteViewModel
 //
 
 import SwiftUI
 
 struct ActiveRouteMiniPlayer: View {
-    @ObservedObject var viewModel: RouteViewModel
+    @ObservedObject var viewModel: ActiveRouteViewModel
     var onTap: () -> Void
 
     var body: some View {
@@ -20,7 +19,7 @@ struct ActiveRouteMiniPlayer: View {
 
                 // Info principal
                 VStack(alignment: .leading, spacing: ACSpacing.xxs) {
-                    Text(viewModel.currentRoute?.name ?? "Ruta activa")
+                    Text(viewModel.route?.name ?? "Ruta activa")
                         .font(ACTypography.titleSmall)
                         .foregroundColor(ACColors.textPrimary)
                         .lineLimit(1)
@@ -51,15 +50,12 @@ struct ActiveRouteMiniPlayer: View {
                 Spacer()
 
                 // Play/Pause button
-                if viewModel.audioService.isPlaying || viewModel.audioService.isPaused {
+                if viewModel.currentStop != nil {
                     Button(action: {
-                        if viewModel.audioService.isPaused {
-                            viewModel.resumeAudio()
-                        } else if viewModel.audioService.isPlaying {
-                            viewModel.pauseAudio()
-                        }
+                        // Toggle pause/resume
+                        viewModel.pauseAudio()
                     }) {
-                        Image(systemName: viewModel.audioService.isPaused ? "play.fill" : "pause.fill")
+                        Image(systemName: "pause.fill")
                             .font(.system(size: 16))
                             .foregroundColor(.white)
                             .frame(width: 36, height: 36)
@@ -90,17 +86,13 @@ struct ActiveRouteMiniPlayer: View {
                 .fill(ACColors.primary)
                 .frame(width: 44, height: 44)
 
-            if viewModel.audioService.isPlaying {
-                // Barras de audio animadas
+            if viewModel.currentStop != nil {
+                // Barras de audio animadas cuando hay audio activo
                 HStack(spacing: 2) {
                     ForEach(0..<3, id: \.self) { index in
                         MiniWaveBar(delay: Double(index) * 0.15)
                     }
                 }
-            } else if viewModel.audioService.isPaused {
-                Image(systemName: "pause.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(.white)
             } else {
                 Image(systemName: "headphones")
                     .font(.system(size: 18))
@@ -135,7 +127,8 @@ private struct MiniWaveBar: View {
 #Preview {
     VStack {
         Spacer()
-        ActiveRouteMiniPlayer(viewModel: RouteViewModel(), onTap: {})
+        // Preview placeholder - needs real dependencies in actual use
+        Text("ActiveRouteMiniPlayer Preview")
             .padding()
     }
     .background(ACColors.background)

@@ -3,6 +3,7 @@
 //  AudioCityPOC
 //
 //  Vista principal de rutas con secciones estilo moderno
+//  Usa @EnvironmentObject para ViewModels (DI sin singletons)
 //
 
 import SwiftUI
@@ -11,11 +12,14 @@ import CoreLocation
 import Combine
 
 struct RoutesListView: View {
-    // Support for both standalone and shared viewModel modes
-    @ObservedObject private var viewModel: RouteViewModel
+    // ViewModels via Environment
+    @EnvironmentObject private var discoveryVM: RouteDiscoveryViewModel
+    @EnvironmentObject private var activeRouteVM: ActiveRouteViewModel
     @EnvironmentObject private var exploreViewModel: ExploreViewModel
     @EnvironmentObject private var tripService: TripService
     @EnvironmentObject private var favoritesService: FavoritesService
+    @EnvironmentObject private var container: DependencyContainer
+
     @State private var selectedCity: String = ""
     @State private var userLocation: CLLocation?
     @State private var selectedTrip: Trip?
@@ -25,41 +29,22 @@ struct RoutesListView: View {
     var onShowOptimizeSheet: (((name: String, distance: Int, originalOrder: Int)?) -> Void)?
     var onStartRouteDirectly: (() -> Void)?
 
-    // Inicializador por defecto (standalone)
-    init() {
-        self._viewModel = ObservedObject(wrappedValue: RouteViewModel())
-        self.onRouteStarted = nil
-        self.onShowOptimizeSheet = nil
-        self.onStartRouteDirectly = nil
-    }
-
-    // Inicializador con viewModel compartido
-    init(sharedViewModel: RouteViewModel,
-         onRouteStarted: (() -> Void)? = nil,
-         onShowOptimizeSheet: (((name: String, distance: Int, originalOrder: Int)?) -> Void)? = nil,
-         onStartRouteDirectly: (() -> Void)? = nil) {
-        self._viewModel = ObservedObject(wrappedValue: sharedViewModel)
-        self.onRouteStarted = onRouteStarted
-        self.onShowOptimizeSheet = onShowOptimizeSheet
-        self.onStartRouteDirectly = onStartRouteDirectly
-    }
-
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.currentRoute != nil && !viewModel.isRouteActive {
+                if discoveryVM.selectedRoute != nil && !activeRouteVM.isRouteActive {
                     routeDetailView
                 } else {
                     mainContent
                 }
             }
-            .navigationTitle(viewModel.currentRoute?.name ?? "")
+            .navigationTitle(discoveryVM.selectedRoute?.name ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if viewModel.currentRoute != nil && !viewModel.isRouteActive {
+                if discoveryVM.selectedRoute != nil && !activeRouteVM.isRouteActive {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button(action: {
-                            viewModel.backToRoutesList()
+                            discoveryVM.clearSelection()
                         }) {
                             HStack(spacing: ACSpacing.xs) {
                                 Image(systemName: "chevron.left")
@@ -73,11 +58,10 @@ struct RoutesListView: View {
             }
         }
         .onAppear {
-            if viewModel.availableRoutes.isEmpty {
-                viewModel.loadAvailableRoutes()
+            if discoveryVM.availableRoutes.isEmpty {
+                discoveryVM.loadAvailableRoutes()
             }
             // Obtener ubicación única para ordenar rutas por proximidad
-            // NO iniciamos tracking continuo aquí - solo cuando se inicia una ruta
             if let location = exploreViewModel.locationService.userLocation {
                 userLocation = location
             } else {
@@ -101,14 +85,14 @@ struct RoutesListView: View {
     // MARK: - Main Content
     @ViewBuilder
     private var mainContent: some View {
-        if viewModel.isLoadingRoutes {
+        if discoveryVM.isLoadingRoutes {
             ACLoadingState(message: "Cargando rutas...")
-        } else if viewModel.availableRoutes.isEmpty {
-            if let error = viewModel.errorMessage {
+        } else if discoveryVM.availableRoutes.isEmpty {
+            if let error = discoveryVM.errorMessage {
                 ACErrorState(
                     title: "Error de conexión",
                     description: error,
-                    retryAction: { viewModel.loadAvailableRoutes() }
+                    retryAction: { discoveryVM.loadAvailableRoutes() }
                 )
             } else {
                 ACEmptyState(
@@ -116,7 +100,7 @@ struct RoutesListView: View {
                     title: "No hay rutas disponibles",
                     description: "Pronto añadiremos nuevas rutas en tu ciudad",
                     actionTitle: "Reintentar",
-                    action: { viewModel.loadAvailableRoutes() }
+                    action: { discoveryVM.loadAvailableRoutes() }
                 )
             }
         } else {
@@ -170,7 +154,7 @@ struct RoutesListView: View {
                         theme: theme,
                         routes: routes
                     ) { route in
-                        viewModel.selectRoute(route)
+                        discoveryVM.selectRoute(route)
                     }
                 }
 
@@ -233,7 +217,7 @@ struct RoutesListView: View {
                             duration: route.durationFormatted,
                             stopsCount: route.numStops,
                             thumbnailUrl: route.thumbnailUrl.isEmpty ? nil : route.thumbnailUrl,
-                            onTap: { viewModel.selectRoute(route) }
+                            onTap: { discoveryVM.selectRoute(route) }
                         )
                     }
                 }
@@ -246,13 +230,13 @@ struct RoutesListView: View {
 
     /// Ciudades disponibles (de las rutas cargadas)
     private var availableCities: [String] {
-        Array(Set(viewModel.availableRoutes.map { $0.city })).sorted()
+        Array(Set(discoveryVM.availableRoutes.map { $0.city })).sorted()
     }
 
     /// Ciudad más cercana según ubicación del usuario
     private var nearestCity: String? {
         guard let location = userLocation else { return nil }
-        return viewModel.availableRoutes
+        return discoveryVM.availableRoutes
             .min { route1, route2 in
                 let d1 = location.distance(from: route1.startLocation.clLocation)
                 let d2 = location.distance(from: route2.startLocation.clLocation)
@@ -270,8 +254,8 @@ struct RoutesListView: View {
 
     /// Rutas filtradas por ciudad
     private var cityFilteredRoutes: [Route] {
-        guard !effectiveCity.isEmpty else { return viewModel.availableRoutes }
-        return viewModel.availableRoutes.filter { $0.city == effectiveCity }
+        guard !effectiveCity.isEmpty else { return discoveryVM.availableRoutes }
+        return discoveryVM.availableRoutes.filter { $0.city == effectiveCity }
     }
 
     /// Favoritas para la ciudad, ordenadas por rating
@@ -396,25 +380,49 @@ struct RoutesListView: View {
     // MARK: - Route Detail View
     @ViewBuilder
     private var routeDetailView: some View {
-        if viewModel.isLoading {
+        if discoveryVM.isLoadingStops {
             ACLoadingState(message: "Cargando detalles...")
-        } else if let route = viewModel.currentRoute {
-            RouteDetailContentV2(
+        } else if let route = discoveryVM.selectedRoute {
+            RouteDetailContent(
                 route: route,
-                viewModel: viewModel,
+                stops: discoveryVM.routeStops,
+                stopsState: activeRouteVM.stopsState,
+                isRouteActive: activeRouteVM.isRouteActive,
+                onEndRoute: { activeRouteVM.endRoute() },
+                onRequestLocation: { completion in
+                    activeRouteVM.requestCurrentLocation(completion: completion)
+                },
+                shouldSuggestOptimization: { location in
+                    activeRouteVM.shouldSuggestOptimization(userLocation: location)
+                },
+                getNearestStopInfo: { location in
+                    activeRouteVM.getNearestStopInfo(userLocation: location)
+                },
                 onShowOptimizeSheet: onShowOptimizeSheet,
-                onStartRouteDirectly: onStartRouteDirectly
+                onStartRouteDirectly: onStartRouteDirectly,
+                startRoute: { optimized in
+                    activeRouteVM.startRoute(route, stops: discoveryVM.routeStops, optimized: optimized)
+                }
             )
         }
     }
 }
 
-// MARK: - Route Detail Content V2
-struct RouteDetailContentV2: View {
+// MARK: - Route Detail Content V3
+
+struct RouteDetailContent: View {
     let route: Route
-    @ObservedObject var viewModel: RouteViewModel
+    let stops: [Stop]
+    let stopsState: RouteStopsState
+    let isRouteActive: Bool
+    let onEndRoute: () -> Void
+    let onRequestLocation: (@escaping (CLLocation?) -> Void) -> Void
+    let shouldSuggestOptimization: (CLLocation) -> Bool
+    let getNearestStopInfo: (CLLocation) -> (name: String, distance: Int, originalOrder: Int)?
     var onShowOptimizeSheet: (((name: String, distance: Int, originalOrder: Int)?) -> Void)?
     var onStartRouteDirectly: (() -> Void)?
+    let startRoute: (Bool) -> Void
+
     @State private var isCheckingLocation = false
     @State private var showActiveRouteAlert = false
     @StateObject private var distanceCalculator = RouteDistanceCalculator()
@@ -442,7 +450,7 @@ struct RouteDetailContentV2: View {
                     isFullWidth: true
                 ) {
                     // Verificar si hay una ruta activa
-                    if viewModel.isRouteActive {
+                    if isRouteActive {
                         showActiveRouteAlert = true
                     } else {
                         handleStartRoute()
@@ -454,7 +462,7 @@ struct RouteDetailContentV2: View {
                     Button("Cancelar", role: .cancel) { }
                     Button("Parar e iniciar nueva", role: .destructive) {
                         // Detener la ruta actual
-                        viewModel.endRoute()
+                        onEndRoute()
                         // Detener audio de preview
                         audioPreviewService.stop()
                         // Iniciar la nueva ruta
@@ -471,8 +479,8 @@ struct RouteDetailContentV2: View {
         .background(ACColors.background)
         .onAppear {
             // Calcular distancias reales cuando carguen las paradas
-            if !viewModel.stops.isEmpty {
-                let coords = viewModel.stops.sorted { $0.order < $1.order }.map { $0.coordinate }
+            if !stops.isEmpty {
+                let coords = stops.sorted { $0.order < $1.order }.map { $0.coordinate }
                 distanceCalculator.calculateTotalDistance(through: coords)
             }
         }
@@ -480,9 +488,9 @@ struct RouteDetailContentV2: View {
             // Detener audio de preview cuando se sale de la pantalla
             audioPreviewService.stop()
         }
-        .onChange(of: viewModel.stops.count) { _, count in
+        .onChange(of: stops.count) { _, count in
             if count > 0 {
-                let coords = viewModel.stops.sorted { $0.order < $1.order }.map { $0.coordinate }
+                let coords = stops.sorted { $0.order < $1.order }.map { $0.coordinate }
                 distanceCalculator.calculateTotalDistance(through: coords)
             }
         }
@@ -492,25 +500,25 @@ struct RouteDetailContentV2: View {
         isCheckingLocation = true
 
         // Solicitar ubicación actual antes de verificar optimización
-        viewModel.requestCurrentLocation { location in
+        onRequestLocation { location in
             isCheckingLocation = false
 
             guard let userLocation = location else {
                 // Sin ubicación, iniciar directamente sin optimizar
                 Log("No se pudo obtener ubicación, iniciando sin optimización", level: .warning, category: .location)
                 onStartRouteDirectly?()
-                viewModel.startRoute(optimized: false)
+                startRoute(false)
                 return
             }
 
             // Verificar si conviene sugerir optimización
-            if viewModel.shouldSuggestRouteOptimization(userLocation: userLocation) {
-                let stopInfo = viewModel.getNearestStopInfo(userLocation: userLocation)
+            if shouldSuggestOptimization(userLocation) {
+                let stopInfo = getNearestStopInfo(userLocation)
                 onShowOptimizeSheet?(stopInfo)
             } else {
                 // El punto más cercano ya es el primero, iniciar directamente
                 onStartRouteDirectly?()
-                viewModel.startRoute(optimized: false)
+                startRoute(false)
             }
         }
     }
@@ -570,7 +578,7 @@ struct RouteDetailContentV2: View {
                 color: ACColors.secondary
             )
             ACETACard(
-                value: "\(viewModel.stops.count)",
+                value: "\(stops.count)",
                 unit: "",
                 label: "Paradas",
                 icon: "mappin.circle.fill",
@@ -586,13 +594,13 @@ struct RouteDetailContentV2: View {
                 .padding(.horizontal, ACSpacing.containerPadding)
 
             VStack(spacing: 0) {
-                let sortedStops = viewModel.stops.sorted { $0.order < $1.order }
+                let sortedStops = stops.sorted { $0.order < $1.order }
                 ForEach(Array(sortedStops.enumerated()), id: \.element.id) { index, stop in
                     let isLast = index == sortedStops.count - 1
-                    StopRowV2(
+                    StopRow(
                         stop: stop,
                         number: index + 1,
-                        isVisited: viewModel.stopsState.isVisited(stop.id),
+                        isVisited: stopsState.isVisited(stop.id),
                         distanceToNext: isLast ? nil : distanceCalculator.formattedSegmentDistance(at: index)
                     )
                 }
@@ -602,8 +610,9 @@ struct RouteDetailContentV2: View {
     }
 }
 
-// MARK: - Stop Row V2
-struct StopRowV2: View {
+// MARK: - Stop Row
+
+struct StopRow: View {
     let stop: Stop
     let number: Int
     let isVisited: Bool
@@ -781,6 +790,28 @@ struct StopRowV2: View {
     }
 }
 
+// MARK: - Audio Wave Bar
+
+private struct AudioWaveBar: View {
+    let delay: Double
+    @State private var isAnimating = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 1.5)
+            .fill(ACColors.primary)
+            .frame(width: 3, height: isAnimating ? 14 : 6)
+            .animation(
+                Animation.easeInOut(duration: 0.4)
+                    .repeatForever(autoreverses: true)
+                    .delay(delay),
+                value: isAnimating
+            )
+            .onAppear {
+                isAnimating = true
+            }
+    }
+}
+
 // MARK: - Route Distance Calculator
 
 class RouteDistanceCalculator: ObservableObject {
@@ -863,8 +894,4 @@ class RouteDistanceCalculator: ObservableObject {
             return String(format: "%.1f km", distance / 1000)
         }
     }
-}
-
-#Preview {
-    RoutesListView()
 }

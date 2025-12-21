@@ -3,7 +3,7 @@
 //  AudioCityPOC
 //
 //  Vista de mapa para explorar todos los puntos de audio
-//  Cuando hay una ruta activa, muestra la ruta trazada y actualiza la distancia al próximo punto
+//  Usa @EnvironmentObject para ViewModels (DI sin singletons)
 //
 
 import SwiftUI
@@ -13,9 +13,7 @@ import Combine
 struct MapExploreView: View {
     @EnvironmentObject private var viewModel: ExploreViewModel
     @EnvironmentObject private var tripService: TripService
-
-    // RouteViewModel compartido para mostrar ruta activa (opcional)
-    var activeRouteViewModel: RouteViewModel?
+    @EnvironmentObject private var activeRouteVM: ActiveRouteViewModel
 
     // Callback para navegar a la pantalla de rutas
     var onNavigateToRoute: ((String) -> Void)?
@@ -30,26 +28,24 @@ struct MapExploreView: View {
     @State private var searchResults: [MKLocalSearchCompletion] = []
     @StateObject private var searchCompleter = SearchCompleterDelegate()
 
-
     // Computed: Si hay ruta activa
     private var hasActiveRoute: Bool {
-        activeRouteViewModel?.isRouteActive == true
+        activeRouteVM.isRouteActive
     }
 
     // Computed: Paradas de la ruta activa
     private var activeRouteStops: [Stop] {
-        activeRouteViewModel?.stops ?? []
+        activeRouteVM.stops
     }
 
     // Computed: Distancia al próximo punto
     private var distanceToNextStop: Double {
-        activeRouteViewModel?.distanceToNextStop ?? 0
+        activeRouteVM.distanceToNextStop
     }
 
     // Computed: Progreso de la ruta
     private var routeProgress: (visited: Int, total: Int) {
-        guard let vm = activeRouteViewModel else { return (0, 0) }
-        return (vm.getVisitedCount(), vm.stops.count)
+        return (activeRouteVM.getVisitedCount(), activeRouteVM.stops.count)
     }
 
     var body: some View {
@@ -69,88 +65,7 @@ struct MapExploreView: View {
                 // Overlay con controles
                 VStack(spacing: 0) {
                     // Buscador de direcciones (arriba)
-                    VStack(spacing: 0) {
-                        // Campo de búsqueda
-                        HStack(spacing: ACSpacing.sm) {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(ACColors.textTertiary)
-                                .font(.system(size: 16))
-
-                            TextField("Buscar dirección...", text: $searchText)
-                                .font(ACTypography.bodyMedium)
-                                .foregroundColor(ACColors.textPrimary)
-                                .onTapGesture {
-                                    isSearching = true
-                                }
-
-                            if !searchText.isEmpty {
-                                Button(action: {
-                                    searchText = ""
-                                    searchResults = []
-                                    isSearching = false
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(ACColors.textTertiary)
-                                        .font(.system(size: 16))
-                                }
-                            }
-                        }
-                        .padding(.horizontal, ACSpacing.md)
-                        .padding(.vertical, ACSpacing.sm)
-                        .background(ACColors.surface)
-                        .cornerRadius(ACRadius.lg)
-                        .acShadow(ACShadow.md)
-                        .padding(.horizontal, ACSpacing.containerPadding)
-                        .padding(.top, ACSpacing.md)
-
-                        // Resultados de búsqueda
-                        if isSearching && !searchResults.isEmpty {
-                            ScrollView {
-                                VStack(spacing: 0) {
-                                    ForEach(searchResults, id: \.self) { result in
-                                        Button(action: {
-                                            selectSearchResult(result)
-                                        }) {
-                                            HStack(spacing: ACSpacing.sm) {
-                                                Image(systemName: "mappin.circle.fill")
-                                                    .foregroundColor(ACColors.primary)
-                                                    .font(.system(size: 20))
-
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(result.title)
-                                                        .font(ACTypography.bodyMedium)
-                                                        .foregroundColor(ACColors.textPrimary)
-                                                        .lineLimit(1)
-
-                                                    if !result.subtitle.isEmpty {
-                                                        Text(result.subtitle)
-                                                            .font(ACTypography.caption)
-                                                            .foregroundColor(ACColors.textSecondary)
-                                                            .lineLimit(1)
-                                                    }
-                                                }
-
-                                                Spacer()
-                                            }
-                                            .padding(.horizontal, ACSpacing.md)
-                                            .padding(.vertical, ACSpacing.sm)
-                                        }
-
-                                        if result != searchResults.last {
-                                            Divider()
-                                                .padding(.leading, 44)
-                                        }
-                                    }
-                                }
-                            }
-                            .frame(maxHeight: 200)
-                            .background(ACColors.surface)
-                            .cornerRadius(ACRadius.lg)
-                            .acShadow(ACShadow.md)
-                            .padding(.horizontal, ACSpacing.containerPadding)
-                            .padding(.top, ACSpacing.xs)
-                        }
-                    }
+                    searchBarSection
 
                     Spacer()
 
@@ -218,15 +133,15 @@ struct MapExploreView: View {
                 handleActiveRouteLocationUpdate(location)
             }
         }
-        .onChange(of: activeRouteViewModel?.stopsState.visitedStopIds) { _, _ in
+        .onChange(of: activeRouteVM.stopsState.visitedStopIds) { _, _ in
             updateNextStop()
         }
-        .onChange(of: activeRouteViewModel?.isRouteActive) { _, isActive in
-            if isActive == true {
+        .onChange(of: activeRouteVM.isRouteActive) { _, isActive in
+            if isActive {
                 Log("Ruta activada, esperando polylines...", level: .debug, category: .route)
             }
         }
-        .onChange(of: activeRouteViewModel?.routePolylines.count ?? 0) { _, count in
+        .onChange(of: activeRouteVM.routePolylines.count) { _, count in
             if count > 0 && hasActiveRoute {
                 Log("Polylines listos (\(count)), centrando mapa...", level: .debug, category: .route)
                 // Pequeño delay para asegurar que el mapa está renderizado
@@ -249,6 +164,93 @@ struct MapExploreView: View {
             // Cerrar búsqueda al tocar el mapa
             if isSearching && searchText.isEmpty {
                 isSearching = false
+            }
+        }
+    }
+
+    // MARK: - Search Bar Section
+
+    private var searchBarSection: some View {
+        VStack(spacing: 0) {
+            // Campo de búsqueda
+            HStack(spacing: ACSpacing.sm) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(ACColors.textTertiary)
+                    .font(.system(size: 16))
+
+                TextField("Buscar dirección...", text: $searchText)
+                    .font(ACTypography.bodyMedium)
+                    .foregroundColor(ACColors.textPrimary)
+                    .onTapGesture {
+                        isSearching = true
+                    }
+
+                if !searchText.isEmpty {
+                    Button(action: {
+                        searchText = ""
+                        searchResults = []
+                        isSearching = false
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(ACColors.textTertiary)
+                            .font(.system(size: 16))
+                    }
+                }
+            }
+            .padding(.horizontal, ACSpacing.md)
+            .padding(.vertical, ACSpacing.sm)
+            .background(ACColors.surface)
+            .cornerRadius(ACRadius.lg)
+            .acShadow(ACShadow.md)
+            .padding(.horizontal, ACSpacing.containerPadding)
+            .padding(.top, ACSpacing.md)
+
+            // Resultados de búsqueda
+            if isSearching && !searchResults.isEmpty {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(searchResults, id: \.self) { result in
+                            Button(action: {
+                                selectSearchResult(result)
+                            }) {
+                                HStack(spacing: ACSpacing.sm) {
+                                    Image(systemName: "mappin.circle.fill")
+                                        .foregroundColor(ACColors.primary)
+                                        .font(.system(size: 20))
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(result.title)
+                                            .font(ACTypography.bodyMedium)
+                                            .foregroundColor(ACColors.textPrimary)
+                                            .lineLimit(1)
+
+                                        if !result.subtitle.isEmpty {
+                                            Text(result.subtitle)
+                                                .font(ACTypography.caption)
+                                                .foregroundColor(ACColors.textSecondary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(.horizontal, ACSpacing.md)
+                                .padding(.vertical, ACSpacing.sm)
+                            }
+
+                            if result != searchResults.last {
+                                Divider()
+                                    .padding(.leading, 44)
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 200)
+                .background(ACColors.surface)
+                .cornerRadius(ACRadius.lg)
+                .acShadow(ACShadow.md)
+                .padding(.horizontal, ACSpacing.containerPadding)
+                .padding(.top, ACSpacing.xs)
             }
         }
     }
@@ -291,7 +293,7 @@ struct MapExploreView: View {
         if hasActiveRoute {
             // Mapa con ruta trazada (polylines) cuando hay ruta activa
             activeRouteMapView
-                .id("activeRoute-\(activeRouteViewModel?.currentRoute?.id ?? "")-\(activeRouteViewModel?.routePolylines.count ?? 0)")
+                .id("activeRoute-\(activeRouteVM.route?.id ?? "")-\(activeRouteVM.routePolylines.count)")
         } else {
             // Mapa normal de exploración
             exploreMapView
@@ -327,18 +329,16 @@ struct MapExploreView: View {
             UserAnnotation()
 
             // Polylines de la ruta (rutas caminando)
-            if let vm = activeRouteViewModel {
-                ForEach(Array(vm.routePolylines.enumerated()), id: \.offset) { index, polyline in
-                    MapPolyline(polyline)
-                        .stroke(
-                            index == 0 ? ACColors.info : ACColors.primary,  // Azul para usuario→parada1, coral para el resto
-                            style: StrokeStyle(
-                                lineWidth: index == 0 ? 5 : 4,
-                                lineCap: .round,
-                                lineJoin: .round
-                            )
+            ForEach(Array(activeRouteVM.routePolylines.enumerated()), id: \.offset) { index, polyline in
+                MapPolyline(polyline)
+                    .stroke(
+                        index == 0 ? ACColors.info : ACColors.primary,  // Azul para usuario→parada1, coral para el resto
+                        style: StrokeStyle(
+                            lineWidth: index == 0 ? 5 : 4,
+                            lineCap: .round,
+                            lineJoin: .round
                         )
-                }
+                    )
             }
 
             // Pins de las paradas de la ruta activa
@@ -346,7 +346,7 @@ struct MapExploreView: View {
                 Annotation(stop.name, coordinate: stop.coordinate) {
                     ActiveRouteStopMarker(
                         stop: stop,
-                        isVisited: activeRouteViewModel?.stopsState.isVisited(stop.id) ?? false,
+                        isVisited: activeRouteVM.stopsState.isVisited(stop.id),
                         isNext: nextStop?.id == stop.id
                     )
                     .onTapGesture {
@@ -367,9 +367,7 @@ struct MapExploreView: View {
         .edgesIgnoringSafeArea(.all)
         .onAppear {
             // Log para debug
-            if let vm = activeRouteViewModel {
-                Log("ActiveRouteMap: \(vm.routePolylines.count) polylines, \(activeRouteStops.count) paradas", level: .debug, category: .route)
-            }
+            Log("ActiveRouteMap: \(activeRouteVM.routePolylines.count) polylines, \(activeRouteStops.count) paradas", level: .debug, category: .route)
 
             // Centrar el mapa en la ruta cuando aparece
             centerMapOnRoute()
@@ -435,7 +433,7 @@ struct MapExploreView: View {
                 }
 
                 VStack(alignment: .leading, spacing: ACSpacing.xxs) {
-                    Text(activeRouteViewModel?.currentRoute?.name ?? "Ruta activa")
+                    Text(activeRouteVM.route?.name ?? "Ruta activa")
                         .font(ACTypography.titleSmall)
                         .foregroundColor(ACColors.textPrimary)
                         .lineLimit(1)
@@ -485,7 +483,7 @@ struct MapExploreView: View {
                 Spacer()
 
                 // Controles de audio si está reproduciendo
-                if let vm = activeRouteViewModel, vm.audioService.isPlaying || vm.audioService.isPaused {
+                if activeRouteVM.currentStop != nil {
                     audioControls
                 }
             }
@@ -549,13 +547,9 @@ struct MapExploreView: View {
     private var audioControls: some View {
         HStack(spacing: ACSpacing.sm) {
             Button(action: {
-                if activeRouteViewModel?.audioService.isPaused == true {
-                    activeRouteViewModel?.resumeAudio()
-                } else {
-                    activeRouteViewModel?.pauseAudio()
-                }
+                activeRouteVM.resumeAudio()
             }) {
-                Image(systemName: activeRouteViewModel?.audioService.isPaused == true ? "play.fill" : "pause.fill")
+                Image(systemName: "play.fill")
                     .font(.system(size: 14))
                     .foregroundColor(.white)
                     .frame(width: 36, height: 36)
@@ -564,7 +558,18 @@ struct MapExploreView: View {
             }
 
             Button(action: {
-                activeRouteViewModel?.stopAudio()
+                activeRouteVM.pauseAudio()
+            }) {
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
+                    .frame(width: 36, height: 36)
+                    .background(ACColors.primary)
+                    .cornerRadius(18)
+            }
+
+            Button(action: {
+                activeRouteVM.stopAudio()
             }) {
                 Image(systemName: "stop.fill")
                     .font(.system(size: 12))
@@ -592,27 +597,110 @@ struct MapExploreView: View {
     }
 
     private func updateNextStop() {
-        guard let vm = activeRouteViewModel else {
-            nextStop = nil
-            return
-        }
-        nextStop = vm.stopsState.nextStop
+        nextStop = activeRouteVM.stopsState.nextStop
     }
 
     private func handleActiveRouteLocationUpdate(_ location: CLLocation?) {
         guard let userLocation = location,
-              let vm = activeRouteViewModel,
               let next = nextStop else { return }
 
         // Actualizar el segmento y distancia usuario→próxima parada cada 10 segundos
         if Date().timeIntervalSince(lastRouteUpdateTime) > 10 {
             lastRouteUpdateTime = Date()
-            vm.updateUserSegment(
+            activeRouteVM.updateUserSegment(
                 from: userLocation.coordinate,
                 to: next.coordinate
             )
             Log("Distancia actualizada a \(next.name)", level: .debug, category: .location)
         }
+    }
+}
+
+// MARK: - Search Completer Delegate
+
+class SearchCompleterDelegate: NSObject, ObservableObject, MKLocalSearchCompleterDelegate {
+    @Published var results: [MKLocalSearchCompletion] = []
+
+    private let completer = MKLocalSearchCompleter()
+
+    override init() {
+        super.init()
+        completer.delegate = self
+        completer.resultTypes = [.address, .pointOfInterest]
+    }
+
+    func search(query: String) {
+        completer.queryFragment = query
+    }
+
+    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        DispatchQueue.main.async {
+            self.results = completer.results
+        }
+    }
+
+    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        Log("Error en búsqueda: \(error.localizedDescription)", level: .error, category: .app)
+    }
+}
+
+// MARK: - Stop Marker
+
+struct StopMarker: View {
+    let stop: Stop
+    let isSelected: Bool
+    var isFromTrip: Bool = false
+
+    /// Color del pin según estado
+    private var pinColor: Color {
+        if isSelected {
+            return ACColors.Map.stopSelected
+        } else if isFromTrip {
+            return ACColors.secondary
+        } else {
+            return ACColors.Map.stopPin
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                // Glow cuando está seleccionado
+                if isSelected {
+                    Circle()
+                        .fill(pinColor.opacity(0.3))
+                        .frame(width: 52, height: 52)
+                }
+
+                Circle()
+                    .fill(pinColor)
+                    .frame(width: isSelected ? 44 : 36, height: isSelected ? 44 : 36)
+                    .shadow(color: pinColor.opacity(0.4), radius: 4, y: 2)
+
+                Image(systemName: isFromTrip ? "suitcase.fill" : "headphones")
+                    .foregroundColor(.white)
+                    .font(.system(size: isSelected ? 18 : 14, weight: .semibold))
+            }
+
+            // Pin tail
+            Triangle()
+                .fill(pinColor)
+                .frame(width: 14, height: 8)
+                .offset(y: -2)
+
+            if isSelected {
+                Text(stop.name)
+                    .font(ACTypography.captionSmall)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, ACSpacing.sm)
+                    .padding(.vertical, ACSpacing.xs)
+                    .background(pinColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(ACRadius.sm)
+                    .offset(y: ACSpacing.xs)
+            }
+        }
+        .animation(ACAnimation.spring, value: isSelected)
     }
 }
 
@@ -682,66 +770,8 @@ struct ActiveRouteStopMarker: View {
     }
 }
 
-// MARK: - Stop Marker
-struct StopMarker: View {
-    let stop: Stop
-    let isSelected: Bool
-    var isFromTrip: Bool = false
-
-    /// Color del pin según estado
-    private var pinColor: Color {
-        if isSelected {
-            return ACColors.Map.stopSelected
-        } else if isFromTrip {
-            return ACColors.secondary
-        } else {
-            return ACColors.Map.stopPin
-        }
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                // Glow cuando está seleccionado
-                if isSelected {
-                    Circle()
-                        .fill(pinColor.opacity(0.3))
-                        .frame(width: 52, height: 52)
-                }
-
-                Circle()
-                    .fill(pinColor)
-                    .frame(width: isSelected ? 44 : 36, height: isSelected ? 44 : 36)
-                    .shadow(color: pinColor.opacity(0.4), radius: 4, y: 2)
-
-                Image(systemName: isFromTrip ? "suitcase.fill" : "headphones")
-                    .foregroundColor(.white)
-                    .font(.system(size: isSelected ? 18 : 14, weight: .semibold))
-            }
-
-            // Pin tail
-            Triangle()
-                .fill(pinColor)
-                .frame(width: 14, height: 8)
-                .offset(y: -2)
-
-            if isSelected {
-                Text(stop.name)
-                    .font(ACTypography.captionSmall)
-                    .fontWeight(.semibold)
-                    .padding(.horizontal, ACSpacing.sm)
-                    .padding(.vertical, ACSpacing.xs)
-                    .background(pinColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(ACRadius.sm)
-                    .offset(y: ACSpacing.xs)
-            }
-        }
-        .animation(ACAnimation.spring, value: isSelected)
-    }
-}
-
 // MARK: - Stop Detail Card
+
 struct StopDetailCard: View {
     let stop: Stop
     let isPlaying: Bool
@@ -863,8 +893,8 @@ struct StopDetailCard: View {
                     // Indicador de reproducción
                     if !isPaused {
                         HStack(spacing: 3) {
-                            ForEach(0..<3) { index in
-                                AudioWaveBar(delay: Double(index) * 0.2)
+                            ForEach(0..<3, id: \.self) { index in
+                                StopDetailAudioWaveBar(delay: Double(index) * 0.2)
                             }
                         }
                         .frame(width: 40)
@@ -891,34 +921,24 @@ struct StopDetailCard: View {
     }
 }
 
-// MARK: - Search Completer Delegate
+// MARK: - Audio Wave Bar (for StopDetailCard)
 
-class SearchCompleterDelegate: NSObject, ObservableObject, MKLocalSearchCompleterDelegate {
-    @Published var results: [MKLocalSearchCompletion] = []
+private struct StopDetailAudioWaveBar: View {
+    let delay: Double
+    @State private var isAnimating = false
 
-    private let completer = MKLocalSearchCompleter()
-
-    override init() {
-        super.init()
-        completer.delegate = self
-        completer.resultTypes = [.address, .pointOfInterest]
+    var body: some View {
+        RoundedRectangle(cornerRadius: 1.5)
+            .fill(ACColors.primary)
+            .frame(width: 3, height: isAnimating ? 16 : 6)
+            .animation(
+                Animation.easeInOut(duration: 0.4)
+                    .repeatForever(autoreverses: true)
+                    .delay(delay),
+                value: isAnimating
+            )
+            .onAppear {
+                isAnimating = true
+            }
     }
-
-    func search(query: String) {
-        completer.queryFragment = query
-    }
-
-    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        DispatchQueue.main.async {
-            self.results = completer.results
-        }
-    }
-
-    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
-        Log("Error en búsqueda: \(error.localizedDescription)", level: .error, category: .location)
-    }
-}
-
-#Preview {
-    MapExploreView()
 }

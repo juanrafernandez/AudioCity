@@ -124,15 +124,16 @@ final class DependencyContainer: ObservableObject {
         )
     }()
 
-    /// ViewModel de ruta (legacy - usar los nuevos ViewModels cuando sea posible)
-    private(set) lazy var routeViewModel: RouteViewModel = {
-        RouteViewModel(
+    /// ViewModel para ruta activa
+    private(set) lazy var activeRouteViewModel: ActiveRouteViewModel = {
+        ActiveRouteViewModel(
             locationService: locationService,
-            audioService: audioService,
-            firebaseService: firebaseService,
             geofenceService: geofenceService,
+            historyService: historyService,
+            audioService: audioService,
             notificationService: notificationService,
-            historyService: historyService
+            firebaseService: firebaseService,
+            stopsState: routeStopsState
         )
     }()
 
@@ -143,18 +144,6 @@ final class DependencyContainer: ObservableObject {
     }
 
     // MARK: - Factory Methods
-
-    /// Crear un RouteViewModel con todas las dependencias inyectadas
-    func makeRouteViewModel() -> RouteViewModel {
-        return RouteViewModel(
-            locationService: locationService,
-            audioService: audioService,
-            firebaseService: firebaseService,
-            geofenceService: geofenceService,
-            notificationService: notificationService,
-            historyService: historyService
-        )
-    }
 
     /// Crear un ActiveRouteViewModel con todas las dependencias
     func makeActiveRouteViewModel() -> ActiveRouteViewModel {

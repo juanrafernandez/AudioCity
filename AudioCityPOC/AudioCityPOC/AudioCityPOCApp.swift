@@ -54,6 +54,8 @@ struct AudioCityPOCApp: App {
                 .environmentObject(container.favoritesService)
                 .environmentObject(container.exploreViewModel)
                 .environmentObject(container.routeStopsState)
+                .environmentObject(container.routeDiscoveryViewModel)
+                .environmentObject(container.activeRouteViewModel)
                 .onChange(of: scenePhase) { oldPhase, newPhase in
                     if newPhase == .background {
                         // La app pasa a background - terminar Live Activity

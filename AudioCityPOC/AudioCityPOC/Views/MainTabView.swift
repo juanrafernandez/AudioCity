@@ -14,8 +14,9 @@ struct MainTabView: View {
     @EnvironmentObject private var container: DependencyContainer
     @EnvironmentObject private var audioPreviewService: AudioPreviewService
     @EnvironmentObject private var exploreViewModel: ExploreViewModel
+    @EnvironmentObject private var activeRouteVM: ActiveRouteViewModel
+    @EnvironmentObject private var discoveryVM: RouteDiscoveryViewModel
     @State private var selectedTab = 0
-    @StateObject private var activeRouteViewModel = RouteViewModel()
     @State private var previousTab = 0
 
     // Estados para el sheet de optimización (global)
@@ -36,7 +37,6 @@ struct MainTabView: View {
             TabView(selection: $selectedTab) {
                 // Tab 0: Rutas (catálogo)
                 RoutesListView(
-                    sharedViewModel: activeRouteViewModel,
                     onRouteStarted: {
                         // Esto se llama cuando la ruta está lista, ir al mapa (tab 2)
                         withAnimation(ACAnimation.spring) {
@@ -69,10 +69,9 @@ struct MainTabView: View {
 
                 // Tab 2: Explorar mapa (con overlay de ruta activa si aplica)
                 MapExploreView(
-                    activeRouteViewModel: activeRouteViewModel,
                     onNavigateToRoute: { routeId in
                         // Navegar al tab de Rutas y seleccionar la ruta
-                        activeRouteViewModel.selectRouteById(routeId)
+                        discoveryVM.selectRouteById(routeId)
                         withAnimation(ACAnimation.spring) {
                             selectedTab = 0
                         }
@@ -100,10 +99,10 @@ struct MainTabView: View {
             .tint(ACColors.primary)
 
             // Mini player flotante cuando hay ruta activa (excepto en tab de explorar que es el 2)
-            if activeRouteViewModel.isRouteActive && selectedTab != 2 && !showOptimizeSheet {
+            if activeRouteVM.isRouteActive && selectedTab != 2 && !showOptimizeSheet {
                 VStack {
                     Spacer()
-                    ActiveRouteMiniPlayer(viewModel: activeRouteViewModel) {
+                    ActiveRouteMiniPlayer(viewModel: activeRouteVM) {
                         // Al tocar, ir al mapa (Explorar = tab 2)
                         withAnimation(ACAnimation.spring) {
                             selectedTab = 2
@@ -122,11 +121,11 @@ struct MainTabView: View {
                     isCalculating: $isCalculatingRoute,
                     onKeepOriginal: {
                         isCalculatingRoute = true
-                        activeRouteViewModel.startRoute(optimized: false)
+                        startSelectedRoute(optimized: false)
                     },
                     onOptimize: {
                         isCalculatingRoute = true
-                        activeRouteViewModel.startRoute(optimized: true)
+                        startSelectedRoute(optimized: true)
                     },
                     onDismiss: {
                         if !isCalculatingRoute {
@@ -152,7 +151,7 @@ struct MainTabView: View {
             checkForActiveRoute()
 
             // Observar isRouteReady con Combine para mayor fiabilidad
-            routeReadyCancellable = activeRouteViewModel.$isRouteReady
+            routeReadyCancellable = activeRouteVM.$isRouteReady
                 .dropFirst() // Ignorar valor inicial
                 .filter { $0 == true }
                 .receive(on: DispatchQueue.main)
@@ -181,7 +180,7 @@ struct MainTabView: View {
         .alert("Continuar ruta", isPresented: $showContinueRouteAlert) {
             Button("Cancelar", role: .cancel) {
                 // Limpiar estado guardado si el usuario no quiere continuar
-                activeRouteViewModel.clearSavedRoute()
+                activeRouteVM.clearSavedRoute()
                 savedRouteState = nil
             }
             Button("Continuar") {
@@ -194,9 +193,20 @@ struct MainTabView: View {
         }
     }
 
+    // MARK: - Helper Functions
+
+    /// Iniciar la ruta seleccionada desde RouteDiscoveryViewModel
+    private func startSelectedRoute(optimized: Bool) {
+        guard let route = discoveryVM.selectedRoute else {
+            Log("No hay ruta seleccionada", level: .warning, category: .route)
+            return
+        }
+        activeRouteVM.startRoute(route, stops: discoveryVM.routeStops, optimized: optimized)
+    }
+
     /// Centra el mapa de exploración en la ruta activa
     private func centerExploreMapOnActiveRoute() {
-        let stops = activeRouteViewModel.stops
+        let stops = activeRouteVM.stops
         guard !stops.isEmpty else { return }
 
         let coordinates = stops.map { $0.coordinate }
@@ -236,7 +246,7 @@ struct MainTabView: View {
 
     /// Verificar si hay una ruta activa guardada
     private func checkForActiveRoute() {
-        if let state = activeRouteViewModel.getActiveRouteState() {
+        if let state = activeRouteVM.getActiveRouteState() {
             savedRouteState = state
             showContinueRouteAlert = true
             Log("Ruta activa encontrada - \(state.routeName)", level: .info, category: .route)
@@ -249,12 +259,15 @@ struct MainTabView: View {
 
         isRestoringRoute = true
 
-        activeRouteViewModel.restoreRoute(from: state) { success in
+        activeRouteVM.restoreRoute(from: state) { success in
             if success {
-                // Iniciar la ruta (esto recalculará todo)
-                activeRouteViewModel.startRoute(optimized: false)
+                // Después de restaurar, tenemos route y stops en activeRouteVM
+                // Iniciar la ruta con los datos restaurados
+                if let route = self.activeRouteVM.route {
+                    self.activeRouteVM.startRoute(route, stops: self.activeRouteVM.stops, optimized: false)
+                }
             } else {
-                isRestoringRoute = false
+                self.isRestoringRoute = false
                 Log("Error restaurando ruta", level: .error, category: .route)
             }
         }
