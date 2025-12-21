@@ -14,9 +14,11 @@ struct RoutesListView: View {
     // Support for both standalone and shared viewModel modes
     @ObservedObject private var viewModel: RouteViewModel
     @ObservedObject private var exploreViewModel = ExploreViewModel.shared
+    @ObservedObject private var tripService = TripService.shared
     @StateObject private var favoritesService = FavoritesService()
-    @State private var showingAllRoutes = false
+    @State private var selectedCity: String = ""
     @State private var userLocation: CLLocation?
+    @State private var selectedTrip: Trip?
 
     // Callbacks para manejar la optimización a nivel global (MainTabView)
     var onRouteStarted: (() -> Void)?
@@ -74,17 +76,14 @@ struct RoutesListView: View {
             if viewModel.availableRoutes.isEmpty {
                 viewModel.loadAvailableRoutes()
             }
-            // Obtener ubicación actual para ordenar por proximidad
-            userLocation = exploreViewModel.locationService.userLocation
-            if userLocation == nil {
+            // Obtener ubicación única para ordenar rutas por proximidad
+            // NO iniciamos tracking continuo aquí - solo cuando se inicia una ruta
+            if let location = exploreViewModel.locationService.userLocation {
+                userLocation = location
+            } else {
                 exploreViewModel.locationService.requestSingleLocation { location in
                     userLocation = location
                 }
-            }
-            // Iniciar tracking de ubicación para que esté disponible al iniciar ruta
-            if viewModel.locationService.authorizationStatus == .authorizedWhenInUse ||
-               viewModel.locationService.authorizationStatus == .authorizedAlways {
-                viewModel.locationService.startTracking()
             }
         }
         .onReceive(exploreViewModel.locationService.$userLocation) { location in
@@ -92,9 +91,9 @@ struct RoutesListView: View {
                 userLocation = location
             }
         }
-        .sheet(isPresented: $showingAllRoutes) {
-            AllRoutesView(routes: viewModel.availableRoutes) { route in
-                viewModel.selectRoute(route)
+        .fullScreenCover(item: $selectedTrip) { trip in
+            NavigationStack {
+                TripDetailView(trip: trip, tripService: tripService)
             }
         }
     }
@@ -129,7 +128,23 @@ struct RoutesListView: View {
     private var routesSectionsView: some View {
         ScrollView {
             VStack(spacing: ACSpacing.sectionSpacing) {
-                // Rutas Favoritas (horizontal scroll)
+                // Próximo viaje (si hay)
+                if let nextTrip = nextUpcomingTrip {
+                    nextTripSection(nextTrip)
+                        .padding(.horizontal, ACSpacing.containerPadding)
+                }
+
+                // Buscador de ciudad
+                ACCitySearchField(
+                    selectedCity: $selectedCity,
+                    availableCities: availableCities,
+                    nearestCity: nearestCity
+                ) { city in
+                    selectedCity = city
+                }
+                .padding(.horizontal, ACSpacing.containerPadding)
+
+                // Rutas Favoritas (si hay para esta ciudad)
                 if !favoriteRoutes.isEmpty {
                     routeSectionHorizontal(
                         title: "Tus Favoritas",
@@ -139,7 +154,7 @@ struct RoutesListView: View {
                     )
                 }
 
-                // Top Rutas (horizontal scroll)
+                // Top Rutas (por usageCount)
                 if !topRoutes.isEmpty {
                     routeSectionHorizontal(
                         title: "Top Rutas",
@@ -149,19 +164,32 @@ struct RoutesListView: View {
                     )
                 }
 
-                // Rutas de Moda (horizontal scroll)
-                if !trendingRoutes.isEmpty {
-                    routeSectionHorizontal(
-                        title: "Populares",
-                        icon: "flame.fill",
-                        iconColor: ACColors.warning,
-                        routes: trendingRoutes
-                    )
+                // Secciones por temática
+                ForEach(routesByTheme, id: \.0) { theme, routes in
+                    ACThemeSection(
+                        theme: theme,
+                        routes: routes
+                    ) { route in
+                        viewModel.selectRoute(route)
+                    }
                 }
 
-                // Botón Todas las Rutas
-                allRoutesButton
-                    .padding(.horizontal, ACSpacing.containerPadding)
+                // Empty state si no hay rutas en esta ciudad
+                if cityFilteredRoutes.isEmpty && !effectiveCity.isEmpty {
+                    VStack(spacing: ACSpacing.md) {
+                        Image(systemName: "map")
+                            .font(.system(size: 48))
+                            .foregroundColor(ACColors.textTertiary)
+                        Text("No hay rutas en \(effectiveCity)")
+                            .font(ACTypography.bodyMedium)
+                            .foregroundColor(ACColors.textSecondary)
+                        Text("Prueba a seleccionar otra ciudad")
+                            .font(ACTypography.caption)
+                            .foregroundColor(ACColors.textTertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, ACSpacing.xxl)
+                }
 
                 Spacer(minLength: ACSpacing.mega)
             }
@@ -179,26 +207,19 @@ struct RoutesListView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: ACSpacing.md) {
             // Header
-            HStack {
-                HStack(spacing: ACSpacing.sm) {
-                    Image(systemName: icon)
-                        .foregroundColor(iconColor)
-                    Text(title)
-                        .font(ACTypography.headlineMedium)
-                        .foregroundColor(ACColors.textPrimary)
-                }
-
-                Spacer()
-
-                Button(action: { showingAllRoutes = true }) {
-                    HStack(spacing: ACSpacing.xxs) {
-                        Text("Ver todas")
-                            .font(ACTypography.labelSmall)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
-                    }
-                    .foregroundColor(ACColors.primary)
-                }
+            HStack(spacing: ACSpacing.sm) {
+                Image(systemName: icon)
+                    .foregroundColor(iconColor)
+                Text(title)
+                    .font(ACTypography.headlineMedium)
+                    .foregroundColor(ACColors.textPrimary)
+                Text("\(routes.count)")
+                    .font(ACTypography.caption)
+                    .foregroundColor(ACColors.textTertiary)
+                    .padding(.horizontal, ACSpacing.sm)
+                    .padding(.vertical, ACSpacing.xxs)
+                    .background(ACColors.borderLight)
+                    .cornerRadius(ACRadius.full)
             }
             .padding(.horizontal, ACSpacing.containerPadding)
 
@@ -208,8 +229,8 @@ struct RoutesListView: View {
                     ForEach(routes) { route in
                         ACCompactRouteCard(
                             title: route.name,
-                            subtitle: route.city,
-                            duration: "\(route.durationMinutes) min",
+                            subtitle: route.neighborhood,
+                            duration: route.durationFormatted,
                             stopsCount: route.numStops,
                             thumbnailUrl: route.thumbnailUrl.isEmpty ? nil : route.thumbnailUrl,
                             onTap: { viewModel.selectRoute(route) }
@@ -221,130 +242,155 @@ struct RoutesListView: View {
         }
     }
 
-    // MARK: - All Routes Button
-    private var allRoutesButton: some View {
-        Button(action: { showingAllRoutes = true }) {
-            HStack(spacing: ACSpacing.md) {
-                ZStack {
-                    Circle()
-                        .fill(ACColors.primaryLight)
-                        .frame(width: 44, height: 44)
-
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 18))
-                        .foregroundColor(ACColors.primary)
-                }
-
-                VStack(alignment: .leading, spacing: ACSpacing.xxs) {
-                    Text("Explorar todas las rutas")
-                        .font(ACTypography.titleSmall)
-                        .foregroundColor(ACColors.textPrimary)
-
-                    Text("\(viewModel.availableRoutes.count) rutas con buscador y filtros")
-                        .font(ACTypography.bodySmall)
-                        .foregroundColor(ACColors.textSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(ACColors.textTertiary)
-            }
-            .padding(ACSpacing.cardPadding)
-            .background(ACColors.surface)
-            .cornerRadius(ACRadius.lg)
-            .acShadow(ACShadow.sm)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-
     // MARK: - Computed Properties
 
-    /// Ordena rutas por proximidad a la ubicación del usuario
-    private func sortByProximity(_ routes: [Route]) -> [Route] {
-        guard let location = userLocation else { return routes }
+    /// Ciudades disponibles (de las rutas cargadas)
+    private var availableCities: [String] {
+        Array(Set(viewModel.availableRoutes.map { $0.city })).sorted()
+    }
 
-        return routes.sorted { route1, route2 in
-            let distance1 = location.distance(from: CLLocation(
-                latitude: route1.startLocation.latitude,
-                longitude: route1.startLocation.longitude
-            ))
-            let distance2 = location.distance(from: CLLocation(
-                latitude: route2.startLocation.latitude,
-                longitude: route2.startLocation.longitude
-            ))
-            return distance1 < distance2
+    /// Ciudad más cercana según ubicación del usuario
+    private var nearestCity: String? {
+        guard let location = userLocation else { return nil }
+        return viewModel.availableRoutes
+            .min { route1, route2 in
+                let d1 = location.distance(from: route1.startLocation.clLocation)
+                let d2 = location.distance(from: route2.startLocation.clLocation)
+                return d1 < d2
+            }?.city
+    }
+
+    /// Ciudad efectiva (seleccionada o más cercana)
+    private var effectiveCity: String {
+        if !selectedCity.isEmpty {
+            return selectedCity
+        }
+        return nearestCity ?? availableCities.first ?? ""
+    }
+
+    /// Rutas filtradas por ciudad
+    private var cityFilteredRoutes: [Route] {
+        guard !effectiveCity.isEmpty else { return viewModel.availableRoutes }
+        return viewModel.availableRoutes.filter { $0.city == effectiveCity }
+    }
+
+    /// Favoritas para la ciudad, ordenadas por rating
+    private var favoriteRoutes: [Route] {
+        favoritesService.filterFavorites(from: cityFilteredRoutes)
+            .sorted { $0.rating > $1.rating }
+    }
+
+    /// Top rutas por número de usos
+    private var topRoutes: [Route] {
+        cityFilteredRoutes
+            .filter { !favoritesService.isFavorite($0.id) }
+            .sorted { $0.usageCount > $1.usageCount }
+            .prefix(5)
+            .map { $0 }
+    }
+
+    /// Rutas agrupadas por temática (excluyendo favoritas y top)
+    private var routesByTheme: [(RouteTheme, [Route])] {
+        let remaining = cityFilteredRoutes.filter { route in
+            !favoritesService.isFavorite(route.id) &&
+            !topRoutes.contains { $0.id == route.id }
+        }
+
+        let grouped = Dictionary(grouping: remaining) { $0.theme }
+
+        return RouteTheme.allCases.compactMap { theme in
+            guard let routes = grouped[theme], !routes.isEmpty else { return nil }
+            return (theme, routes.sorted { $0.rating > $1.rating })
         }
     }
 
-    private var favoriteRoutes: [Route] {
-        sortByProximity(favoritesService.filterFavorites(from: viewModel.availableRoutes))
+    /// Próximo viaje (actual si existe, o el siguiente en el calendario)
+    private var nextUpcomingTrip: Trip? {
+        // Primero buscar viaje activo/actual
+        if let currentTrip = tripService.trips.first(where: { $0.isCurrent }) {
+            return currentTrip
+        }
+        // Si no hay actual, buscar el próximo en el futuro
+        return tripService.trips
+            .filter { !$0.isPast && !$0.isCurrent }
+            .sorted { ($0.startDate ?? .distantFuture) < ($1.startDate ?? .distantFuture) }
+            .first
     }
 
-    private var topRoutes: [Route] {
-        let filtered = viewModel.availableRoutes
-            .filter { !favoritesService.isFavorite($0.id) }
-        return Array(sortByProximity(filtered).prefix(5))
-    }
+    // MARK: - Next Trip Section
 
-    private var trendingRoutes: [Route] {
-        [
-            Route(
-                id: "mock-tapas-lavapies",
-                name: "Ruta de la Tapa por Lavapiés",
-                description: "Descubre los mejores bares de tapas del barrio más multicultural",
-                city: "Madrid",
-                neighborhood: "Lavapiés",
-                durationMinutes: 90,
-                distanceKm: 2.5,
-                difficulty: "Fácil",
-                numStops: 8,
-                language: "es",
-                isActive: true,
-                createdAt: "",
-                updatedAt: "",
-                thumbnailUrl: "",
-                startLocation: Route.Location(latitude: 40.4093, longitude: -3.7010, name: "Plaza Lavapiés"),
-                endLocation: Route.Location(latitude: 40.4093, longitude: -3.7010, name: "Plaza Lavapiés")
-            ),
-            Route(
-                id: "mock-navidad-madrid",
-                name: "Ruta de Navidad",
-                description: "Luces, belenes y mercadillos navideños",
-                city: "Madrid",
-                neighborhood: "Centro",
-                durationMinutes: 120,
-                distanceKm: 4.0,
-                difficulty: "Fácil",
-                numStops: 10,
-                language: "es",
-                isActive: true,
-                createdAt: "",
-                updatedAt: "",
-                thumbnailUrl: "",
-                startLocation: Route.Location(latitude: 40.4168, longitude: -3.7038, name: "Puerta del Sol"),
-                endLocation: Route.Location(latitude: 40.4153, longitude: -3.7074, name: "Plaza Mayor")
-            ),
-            Route(
-                id: "mock-blackfriday",
-                name: "Ruta Black Friday",
-                description: "Las mejores tiendas y outlets",
-                city: "Madrid",
-                neighborhood: "Salamanca",
-                durationMinutes: 150,
-                distanceKm: 3.5,
-                difficulty: "Media",
-                numStops: 12,
-                language: "es",
-                isActive: true,
-                createdAt: "",
-                updatedAt: "",
-                thumbnailUrl: "",
-                startLocation: Route.Location(latitude: 40.4260, longitude: -3.6833, name: "Serrano"),
-                endLocation: Route.Location(latitude: 40.4230, longitude: -3.6900, name: "Goya")
-            )
-        ]
+    private func nextTripSection(_ trip: Trip) -> some View {
+        VStack(alignment: .leading, spacing: ACSpacing.md) {
+            // Header
+            HStack(spacing: ACSpacing.sm) {
+                Image(systemName: trip.isCurrent ? "location.fill" : "calendar")
+                    .font(.system(size: 18))
+                    .foregroundColor(trip.isCurrent ? ACColors.success : ACColors.secondary)
+
+                Text(trip.isCurrent ? "Viaje activo" : "Próximo viaje")
+                    .font(ACTypography.headlineSmall)
+                    .foregroundColor(ACColors.textPrimary)
+            }
+
+            // Card con borde destacado
+            Button(action: { selectedTrip = trip }) {
+                HStack(spacing: ACSpacing.md) {
+                    // Icon
+                    ZStack {
+                        RoundedRectangle(cornerRadius: ACRadius.md)
+                            .fill(trip.isCurrent ? ACColors.successLight : ACColors.secondaryLight)
+                            .frame(width: 56, height: 56)
+
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(trip.isCurrent ? ACColors.success : ACColors.secondary)
+                    }
+
+                    // Info
+                    VStack(alignment: .leading, spacing: ACSpacing.xs) {
+                        HStack {
+                            Text(trip.destinationCity)
+                                .font(ACTypography.titleMedium)
+                                .foregroundColor(ACColors.textPrimary)
+
+                            if trip.isCurrent {
+                                ACStatusBadge(text: "Ahora", status: .active)
+                            }
+                        }
+
+                        HStack(spacing: ACSpacing.md) {
+                            ACMetaBadge(icon: "map", text: "\(trip.routeCount) rutas")
+
+                            if trip.isOfflineAvailable {
+                                ACMetaBadge(icon: "arrow.down.circle.fill", text: "Offline", color: ACColors.success)
+                            }
+
+                            if let dateRange = trip.dateRangeFormatted {
+                                ACMetaBadge(icon: "calendar", text: dateRange)
+                            }
+                        }
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14))
+                        .foregroundColor(ACColors.textTertiary)
+                }
+                .padding(ACSpacing.md)
+                .background(ACColors.surface)
+                .cornerRadius(ACRadius.lg)
+                .overlay(
+                    RoundedRectangle(cornerRadius: ACRadius.lg)
+                        .stroke(trip.isCurrent ? ACColors.success : ACColors.secondary, lineWidth: 2)
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(ACSpacing.cardPadding)
+        .background(ACColors.surface)
+        .cornerRadius(ACRadius.lg)
+        .acShadow(ACShadow.sm)
     }
 
     // MARK: - Route Detail View

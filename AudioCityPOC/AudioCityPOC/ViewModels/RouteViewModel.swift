@@ -321,7 +321,8 @@ class RouteViewModel: ObservableObject {
         // Solicitar permisos de notificaciones
         notificationService.requestAuthorization()
 
-        // Iniciar servicios
+        // Iniciar servicios con GPS de alta precisión (ruta activa)
+        locationService.enableHighAccuracyMode()
         locationService.startTracking()
         geofenceService.setupGeofences(for: stops, locationService: locationService)
 
@@ -466,7 +467,9 @@ class RouteViewModel: ObservableObject {
 
     /// Detener ruta
     func endRoute() {
+        // Detener GPS y volver a modo ahorro de batería
         locationService.stopTracking()
+        locationService.disableHighAccuracyMode()
         locationService.clearNativeGeofences()  // Limpiar geofences nativos
         geofenceService.clearGeofences()
         audioService.stopAndClear()  // Detener y limpiar cola

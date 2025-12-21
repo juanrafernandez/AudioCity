@@ -16,19 +16,20 @@ struct ACTripCard: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: ACSpacing.md) {
-                // Icon
+                // Icon - Maleta de viaje
                 ZStack {
                     RoundedRectangle(cornerRadius: ACRadius.md)
-                        .fill(ACColors.secondaryLight)
+                        .fill(ACColors.primaryLight)
                         .frame(width: 56, height: 56)
 
-                    Image(systemName: "mappin.circle.fill")
+                    Image(systemName: "suitcase.rolling.fill")
                         .font(.system(size: 24))
-                        .foregroundColor(ACColors.secondary)
+                        .foregroundColor(ACColors.primary)
                 }
 
                 // Info
                 VStack(alignment: .leading, spacing: ACSpacing.xs) {
+                    // Ciudad y badge activo
                     HStack {
                         Text(trip.destinationCity)
                             .font(ACTypography.titleMedium)
@@ -39,15 +40,24 @@ struct ACTripCard: View {
                         }
                     }
 
+                    // Fechas del viaje (prominentes)
+                    if let dateRange = trip.dateRangeFormatted {
+                        HStack(spacing: ACSpacing.xs) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 12))
+                                .foregroundColor(ACColors.primary)
+                            Text(dateRange)
+                                .font(ACTypography.bodySmall)
+                                .foregroundColor(ACColors.textSecondary)
+                        }
+                    }
+
+                    // Meta info
                     HStack(spacing: ACSpacing.md) {
                         ACMetaBadge(icon: "map", text: "\(trip.routeCount) rutas")
 
                         if trip.isOfflineAvailable {
                             ACMetaBadge(icon: "arrow.down.circle.fill", text: "Offline", color: ACColors.success)
-                        }
-
-                        if let dateRange = trip.dateRangeFormatted {
-                            ACMetaBadge(icon: "calendar", text: dateRange)
                         }
                     }
                 }
@@ -59,10 +69,20 @@ struct ACTripCard: View {
                     .foregroundColor(ACColors.textTertiary)
             }
             .padding(ACSpacing.md)
-            .background(ACColors.background)
-            .cornerRadius(ACRadius.md)
+            .background(ACColors.surface)
+            .cornerRadius(ACRadius.lg)
+            .acShadow(ACShadow.sm)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(ScaleButtonStyle())
+    }
+}
+
+// MARK: - Scale Button Style (microinteracción)
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 

@@ -22,17 +22,8 @@ struct MyRoutesView: View {
                 }
             }
             .background(ACColors.background)
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingCreateRoute = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(ACColors.primary)
-                    }
-                }
-            }
+            .navigationTitle(userRoutesService.userRoutes.isEmpty ? "" : "Crear")
+            .navigationBarTitleDisplayMode(.large)
         }
         .sheet(isPresented: $showingCreateRoute) {
             CreateRouteView()
@@ -83,7 +74,7 @@ struct MyRoutesView: View {
     // MARK: - Routes List
     private var routesListView: some View {
         ScrollView {
-            LazyVStack(spacing: ACSpacing.md) {
+            VStack(spacing: ACSpacing.md) {
                 ForEach(userRoutesService.userRoutes) { route in
                     UserRouteCard(route: route)
                         .contentShape(Rectangle())
@@ -91,6 +82,14 @@ struct MyRoutesView: View {
                             selectedRoute = route
                         }
                 }
+
+                // Botón para crear nueva ruta
+                ACButton("Crear nueva ruta", icon: "plus.circle.fill", style: .primary, size: .large) {
+                    showingCreateRoute = true
+                }
+                .padding(.top, ACSpacing.lg)
+
+                Spacer(minLength: ACSpacing.mega)
             }
             .padding(ACSpacing.containerPadding)
         }

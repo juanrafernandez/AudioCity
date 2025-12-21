@@ -58,9 +58,9 @@ AudioCityPOC/
 │   └── ExploreViewModel.swift   # Mapa de exploración (Singleton)
 ├── Views/
 │   ├── SplashView.swift
-│   ├── MainTabView.swift        # 5 tabs con orden: Rutas, Explorar, Crear, Historial, Perfil
-│   ├── RoutesListView.swift     # Pantalla principal de rutas (secciones)
-│   ├── AllRoutesView.swift      # Buscador con filtros
+│   ├── MainTabView.swift        # 5 tabs con orden: Rutas, Viajes, Explorar, Crear, Perfil
+│   ├── RoutesListView.swift     # Catálogo de rutas con filtro por ciudad
+│   ├── ViajesView.swift         # Planificación de viajes
 │   ├── AllTripsView.swift       # Lista completa de viajes (pasados/futuros)
 │   ├── TripOnboardingView.swift # Wizard planificar viaje (4 pasos)
 │   ├── TripDetailView.swift     # Detalle de viaje (ver/editar rutas)
@@ -70,11 +70,16 @@ AudioCityPOC/
 │   ├── ActiveRouteView.swift    # Vista de ruta en progreso
 │   ├── ActiveRouteMiniPlayer.swift # Mini player flotante
 │   ├── MyRoutesView.swift       # Rutas creadas por usuario (UGC)
-│   ├── HistoryView.swift        # Historial de rutas completadas
-│   └── ProfileView.swift        # Perfil con puntos y nivel
+│   ├── HistoryView.swift        # Historial de rutas completadas (accesible desde Perfil)
+│   └── ProfileView.swift        # Perfil con puntos, nivel e historial integrado
 ├── DesignSystem/
 │   ├── Theme.swift              # Colores, tipografía, espaciados
-│   └── Components/              # Componentes reutilizables (ACButton, ACCard, etc.)
+│   └── Components/              # Componentes reutilizables
+│       ├── ACButton.swift, ACCard.swift, ACBadge.swift...
+│       ├── ACTripCard.swift     # Card de viaje (usado en ViajesView)
+│       ├── ACCitySearchField.swift    # Buscador de ciudad con autocompletado
+│       ├── ACThemeSection.swift       # Sección de rutas agrupadas por temática
+│       └── ACHistoryComponents.swift  # Componentes de historial (stats, record card)
 ├── RouteActivityWidget/         # Widget Extension para Live Activity
 │   ├── RouteActivityWidget.swift
 │   └── RouteActivityWidgetBundle.swift
@@ -84,12 +89,14 @@ AudioCityPOC/
 ## Navegación por Tabs (MainTabView)
 
 ```
-Tab 0: Rutas        → RoutesListView (catálogo de rutas) - TAB INICIAL
-Tab 1: Explorar     → MapExploreView (mapa con paradas + buscador de direcciones)
-Tab 2: Crear        → MyRoutesView (rutas creadas por usuario)
-Tab 3: Historial    → HistoryView (rutas completadas)
-Tab 4: Perfil       → ProfileView (puntos, nivel, configuración)
+Tab 0: Rutas        → RoutesListView (catálogo: favoritas, top, populares) - TAB INICIAL
+Tab 1: Viajes       → ViajesView (planificación de viajes por destino)
+Tab 2: Explorar     → MapExploreView (mapa con paradas + buscador de direcciones)
+Tab 3: Crear        → MyRoutesView (rutas creadas por usuario)
+Tab 4: Perfil       → ProfileView (puntos, nivel, historial integrado)
 ```
+
+**Nota:** Historial está integrado como sección visible en ProfileView con acceso a HistoryView completo.
 
 ## Dynamic Island / Live Activity
 
@@ -305,18 +312,44 @@ onNavigateToRoute: { routeId in
 | 4 | 600-999 | Experto | star.fill |
 | 5 | 1000+ | Maestro AudioCity | crown.fill |
 
-## Arquitectura de Pantalla de Rutas (RoutesListView)
+## Arquitectura de Pantallas Principales
 
+### RoutesListView (Tab Rutas)
 ```
 RoutesListView
-├── 🧳 Mis Viajes (máx 2 próximos + "Ver todos")
-│   ├── [Viajes existentes] → TripCard → TripDetailView
-│   ├── [+ Planificar] → TripOnboardingView
-│   └── [Ver todos] → AllTripsView
-├── ❤️ Rutas Favoritas (scroll horizontal, ordenadas por proximidad)
-├── ⭐ Top Rutas (scroll horizontal, ordenadas por proximidad)
-├── 🔥 Rutas Populares (scroll horizontal) - actualmente mockeadas
-└── 🗺️ [Todas las Rutas] → AllRoutesView (buscador + filtros)
+├── 🔍 ACCitySearchField (buscador de ciudad con autocompletado)
+│   └── Detecta ciudad más cercana automáticamente
+├── 📍 Header "Rutas en [Ciudad]" (muestra ciudad actual)
+├── ❤️ Tus Favoritas (rutas favoritas de la ciudad, ordenadas por rating)
+├── ⭐ Top Rutas (las 5 más usadas, ordenadas por usageCount)
+└── 🏷️ Secciones por Temática (ACThemeSection)
+    ├── 🏛️ Históricas
+    ├── 🍽️ Gastronómicas
+    ├── 🎨 Arte y Cultura
+    └── ... (dinámico según rutas disponibles)
+```
+
+### ViajesView (Tab Viajes)
+```
+ViajesView
+├── 🟢 Viaje Activo (destacado con borde verde)
+├── 📅 Próximos Viajes
+│   └── [Viaje] → ACTripCard → TripDetailView
+├── 🕐 Viajes Pasados
+│   └── [Viaje] → ACTripCard → TripDetailView
+└── [+ Planificar] → TripOnboardingView
+```
+
+### ProfileView (Tab Perfil)
+```
+ProfileView
+├── 👤 Header (nivel, puntos, progreso)
+├── 📊 Estadísticas (rutas, km, tiempo, completadas)
+├── 📜 Historial
+│   ├── ACHistoryStatsRow (4 stats)
+│   ├── ACHistoryRecordCard (máx 3 recientes)
+│   └── [Ver todo] → HistoryView
+└── ℹ️ Info y ajustes
 ```
 
 ## Optimización de Ruta
@@ -335,6 +368,24 @@ func optimizeRoute(stops: [Stop], userLocation: CLLocation) -> [Stop]
 
 ## Modelos de Datos Principales
 
+### RouteTheme (Temática de Rutas)
+```swift
+enum RouteTheme: String, Codable, CaseIterable {
+    case historicas = "Historicas"
+    case gastronomicas = "Gastronomicas"
+    case arte = "Arte"
+    case naturaleza = "Naturaleza"
+    case arquitectura = "Arquitectura"
+    case nocturnas = "Nocturnas"
+    case familiar = "Familiar"
+    case general = "General"
+
+    var displayName: String   // "Históricas", "Gastronómicas", etc.
+    var icon: String          // SF Symbol: "building.columns.fill", etc.
+    var color: Color          // Color asociado a la temática
+}
+```
+
 ### Route
 ```swift
 struct Route {
@@ -350,6 +401,11 @@ struct Route {
     let thumbnailUrl: String      // URL de imagen (puede estar vacío)
     let startLocation: Location   // Para ordenar por proximidad
     let endLocation: Location
+
+    // Campos para ordenación y categorización
+    let rating: Double            // 0.0-5.0 estrellas
+    let usageCount: Int           // Veces completada por usuarios
+    let theme: RouteTheme         // Temática de la ruta
 }
 ```
 
@@ -421,13 +477,26 @@ ACColors.textTertiary   // Gris claro
 
 ## Rutas en Firebase
 
-| ID | Nombre | Ciudad | Paradas | Imagen |
-|----|--------|--------|---------|--------|
-| arganzuela-poc-001 | Descubre Arganzuela | Madrid | 6 | ✓ |
-| letras-poc-001 | Barrio de las Letras | Madrid | 5 | ✓ |
-| canal-poc-001 | Canal y Chamberí | Madrid | 5 | - |
-| valladolid-centro-001 | Valladolid Histórico | Valladolid | 15 | - |
-| zamora-romanico-001 | Zamora Románica | Zamora | 15 | - |
+| ID | Nombre | Ciudad | Paradas | Theme | Rating | UsageCount |
+|----|--------|--------|---------|-------|--------|------------|
+| arganzuela-poc-001 | Descubre Arganzuela | Madrid | 6 | Naturaleza | 4.2 | 150 |
+| letras-poc-001 | Barrio de las Letras | Madrid | 5 | Historicas | 4.5 | 200 |
+| canal-poc-001 | Canal y Chamberí | Madrid | 5 | Arquitectura | 4.0 | 100 |
+| valladolid-centro-001 | Valladolid Histórico | Valladolid | 15 | Historicas | 4.3 | 80 |
+| zamora-romanico-001 | Zamora Románica | Zamora | 15 | Arte | 4.6 | 60 |
+
+### Campos en Firebase (colección routes)
+```json
+{
+  "id": "letras-poc-001",
+  "name": "Barrio de las Letras",
+  "city": "Madrid",
+  "rating": 4.5,
+  "usage_count": 200,
+  "theme": "Historicas",
+  "thumbnail_url": "https://storage.googleapis.com/..."
+}
+```
 
 ## Comandos Útiles
 
@@ -456,7 +525,6 @@ python3 import_to_firebase.py
 1. **Descarga real de tiles de mapa** - Implementar para mapas offline
 2. **Audio pregrabado** - Opción de audio profesional vs TTS
 3. **Badges/logros** - Medallas especiales por ciudades/rutas completadas
-4. **Trending real** - Reemplazar rutas mock por lógica de popularidad
-5. **Sincronización Firebase** - Subir rutas de usuario y puntos a la nube
-6. **Ranking de usuarios** - Leaderboard por puntos/nivel
-7. **Desarrollo Android** - Implementar paridad de funcionalidades
+4. **Sincronización Firebase** - Subir rutas de usuario y puntos a la nube
+5. **Ranking de usuarios** - Leaderboard por puntos/nivel
+6. **Desarrollo Android** - Implementar paridad de funcionalidades

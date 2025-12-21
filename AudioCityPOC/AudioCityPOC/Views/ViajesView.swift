@@ -22,23 +22,17 @@ struct ViajesView: View {
                 }
             }
             .background(ACColors.background)
-            .navigationTitle("Viajes")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    ACButton("Planificar", icon: "plus", style: .primary, size: .small) {
-                        showingTripOnboarding = true
-                    }
-                }
-            }
+            .navigationBarHidden(true)
         }
-        .sheet(isPresented: $showingTripOnboarding) {
+        .fullScreenCover(isPresented: $showingTripOnboarding) {
             TripOnboardingView(tripService: tripService, onComplete: { _ in
                 showingTripOnboarding = false
             })
         }
-        .sheet(item: $selectedTrip) { trip in
-            TripDetailView(trip: trip, tripService: tripService)
+        .fullScreenCover(item: $selectedTrip) { trip in
+            NavigationStack {
+                TripDetailView(trip: trip, tripService: tripService)
+            }
         }
     }
 
@@ -83,38 +77,64 @@ struct ViajesView: View {
     // MARK: - Trips List
 
     private var tripsListView: some View {
-        ScrollView {
-            VStack(spacing: ACSpacing.sectionSpacing) {
-                // Viaje activo
-                if let currentTrip = currentTrips.first {
-                    currentTripSection(currentTrip)
-                        .padding(.horizontal, ACSpacing.containerPadding)
-                }
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                VStack(spacing: ACSpacing.sectionSpacing) {
+                    // Viaje activo
+                    if let currentTrip = currentTrips.first {
+                        currentTripSection(currentTrip)
+                            .padding(.horizontal, ACSpacing.containerPadding)
+                    }
 
-                // Próximos viajes
-                if !upcomingTrips.isEmpty {
-                    tripsSection(
-                        title: "Próximos",
-                        icon: "calendar",
-                        iconColor: ACColors.secondary,
-                        trips: upcomingTrips
-                    )
-                }
+                    // Próximos viajes
+                    if !upcomingTrips.isEmpty {
+                        tripsSection(
+                            title: "Próximos viajes",
+                            icon: "airplane.departure",
+                            iconColor: ACColors.primary,
+                            trips: upcomingTrips
+                        )
+                    }
 
-                // Viajes pasados
-                if !pastTrips.isEmpty {
-                    tripsSection(
-                        title: "Pasados",
-                        icon: "clock.arrow.circlepath",
-                        iconColor: ACColors.textTertiary,
-                        trips: pastTrips,
-                        isPast: true
-                    )
-                }
+                    // Viajes pasados
+                    if !pastTrips.isEmpty {
+                        tripsSection(
+                            title: "Viajes pasados",
+                            icon: "clock.arrow.circlepath",
+                            iconColor: ACColors.textTertiary,
+                            trips: pastTrips,
+                            isPast: true
+                        )
+                    }
 
-                Spacer(minLength: ACSpacing.mega)
+                    // Sección inspiracional (si hay pocos viajes)
+                    if tripService.trips.count < 3 {
+                        inspirationSection
+                            .padding(.horizontal, ACSpacing.containerPadding)
+                    }
+
+                    // Espacio para el botón fijo
+                    Spacer(minLength: 100)
+                }
+                .padding(.top, ACSpacing.md)
             }
-            .padding(.top, ACSpacing.base)
+
+            // Botón fijo en la parte inferior
+            VStack(spacing: 0) {
+                LinearGradient(
+                    colors: [ACColors.background.opacity(0), ACColors.background],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 20)
+
+                ACButton("Planificar nuevo viaje", icon: "plus", style: .primary, size: .large) {
+                    showingTripOnboarding = true
+                }
+                .padding(.horizontal, ACSpacing.containerPadding)
+                .padding(.bottom, ACSpacing.md)
+                .background(ACColors.background)
+            }
         }
     }
 
@@ -136,13 +156,13 @@ struct ViajesView: View {
             // Card con borde destacado
             Button(action: { selectedTrip = trip }) {
                 HStack(spacing: ACSpacing.md) {
-                    // Icon
+                    // Icon - Maleta en movimiento
                     ZStack {
                         RoundedRectangle(cornerRadius: ACRadius.md)
                             .fill(ACColors.successLight)
                             .frame(width: 56, height: 56)
 
-                        Image(systemName: "mappin.circle.fill")
+                        Image(systemName: "suitcase.rolling.fill")
                             .font(.system(size: 24))
                             .foregroundColor(ACColors.success)
                     }
@@ -157,15 +177,23 @@ struct ViajesView: View {
                             ACStatusBadge(text: "Ahora", status: .active)
                         }
 
+                        // Fechas
+                        if let dateRange = trip.dateRangeFormatted {
+                            HStack(spacing: ACSpacing.xs) {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(ACColors.success)
+                                Text(dateRange)
+                                    .font(ACTypography.bodySmall)
+                                    .foregroundColor(ACColors.textSecondary)
+                            }
+                        }
+
                         HStack(spacing: ACSpacing.md) {
                             ACMetaBadge(icon: "map", text: "\(trip.routeCount) rutas")
 
                             if trip.isOfflineAvailable {
                                 ACMetaBadge(icon: "arrow.down.circle.fill", text: "Offline", color: ACColors.success)
-                            }
-
-                            if let dateRange = trip.dateRangeFormatted {
-                                ACMetaBadge(icon: "calendar", text: dateRange)
                             }
                         }
                     }
@@ -184,7 +212,7 @@ struct ViajesView: View {
                         .stroke(ACColors.success, lineWidth: 2)
                 )
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(ScaleButtonStyle())
         }
         .padding(ACSpacing.cardPadding)
         .background(ACColors.surface)
@@ -229,6 +257,71 @@ struct ViajesView: View {
             }
             .padding(.horizontal, ACSpacing.containerPadding)
         }
+    }
+
+    // MARK: - Inspiration Section
+
+    private var inspirationSection: some View {
+        VStack(spacing: ACSpacing.lg) {
+            // Ilustración con iconos
+            ZStack {
+                // Fondo degradado suave
+                RoundedRectangle(cornerRadius: ACRadius.xl)
+                    .fill(
+                        LinearGradient(
+                            colors: [ACColors.primaryLight, ACColors.primaryLight.opacity(0.3)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(height: 140)
+
+                // Iconos decorativos
+                HStack(spacing: ACSpacing.xxl) {
+                    VStack(spacing: ACSpacing.sm) {
+                        Image(systemName: "building.columns.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(ACColors.primary.opacity(0.6))
+                        Text("Historia")
+                            .font(ACTypography.captionSmall)
+                            .foregroundColor(ACColors.primary.opacity(0.8))
+                    }
+
+                    VStack(spacing: ACSpacing.sm) {
+                        Image(systemName: "fork.knife")
+                            .font(.system(size: 32))
+                            .foregroundColor(ACColors.primary)
+                        Text("Gastronomía")
+                            .font(ACTypography.captionSmall)
+                            .foregroundColor(ACColors.primary)
+                    }
+
+                    VStack(spacing: ACSpacing.sm) {
+                        Image(systemName: "paintpalette.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(ACColors.primary.opacity(0.6))
+                        Text("Arte")
+                            .font(ACTypography.captionSmall)
+                            .foregroundColor(ACColors.primary.opacity(0.8))
+                    }
+                }
+            }
+
+            // Texto motivacional
+            VStack(spacing: ACSpacing.xs) {
+                Text("¿Tu próxima aventura?")
+                    .font(ACTypography.headlineSmall)
+                    .foregroundColor(ACColors.textPrimary)
+
+                Text("Explora nuevas ciudades con audioguías que te cuentan la historia de cada rincón")
+                    .font(ACTypography.bodySmall)
+                    .foregroundColor(ACColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(ACSpacing.lg)
+        .background(ACColors.surface)
+        .cornerRadius(ACRadius.xl)
     }
 
     // MARK: - Computed Properties

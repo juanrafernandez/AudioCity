@@ -47,14 +47,30 @@ class LocationService: NSObject, ObservableObject, LocationServiceProtocol {
         locationManager.delegate = self
         locationManager.desiredAccuracy = AppConstants.Location.desiredAccuracy
         locationManager.distanceFilter = AppConstants.Location.distanceFilterMeters
-        
-        // CRÍTICO: Configuración para background
+
+        // NO activamos background tracking por defecto - solo cuando hay ruta activa
+        locationManager.allowsBackgroundLocationUpdates = false
+        locationManager.pausesLocationUpdatesAutomatically = true
+        locationManager.showsBackgroundLocationIndicator = false
+
+        // Verificar estado inicial
+        authorizationStatus = locationManager.authorizationStatus
+    }
+
+    /// Habilitar modo de alta precisión para ruta activa
+    func enableHighAccuracyMode() {
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
         locationManager.showsBackgroundLocationIndicator = true
-        
-        // Verificar estado inicial
-        authorizationStatus = locationManager.authorizationStatus
+        Log("Modo alta precisión GPS activado", level: .info, category: .location)
+    }
+
+    /// Deshabilitar modo de alta precisión (ahorro de batería)
+    func disableHighAccuracyMode() {
+        locationManager.allowsBackgroundLocationUpdates = false
+        locationManager.pausesLocationUpdatesAutomatically = true
+        locationManager.showsBackgroundLocationIndicator = false
+        Log("Modo ahorro GPS activado", level: .info, category: .location)
     }
     
     // MARK: - Public Methods
