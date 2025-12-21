@@ -13,6 +13,9 @@ import UIKit
 struct AudioCityPOCApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
+    // Container principal de dependencias - única fuente de instancias
+    @StateObject private var container = DependencyContainer()
+
     init() {
         // Configurar Firebase
         FirebaseApp.configure()
@@ -40,6 +43,17 @@ struct AudioCityPOCApp: App {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(.light)  // Forzar modo claro - el sistema de diseño está optimizado para light mode
+                // Inyectar todas las dependencias en el environment
+                .environmentObject(container)
+                .environmentObject(container.tripService)
+                .environmentObject(container.pointsService)
+                .environmentObject(container.historyService)
+                .environmentObject(container.userRoutesService)
+                .environmentObject(container.audioPreviewService)
+                .environmentObject(container.notificationService)
+                .environmentObject(container.favoritesService)
+                .environmentObject(container.exploreViewModel)
+                .environmentObject(container.routeStopsState)
                 .onChange(of: scenePhase) { oldPhase, newPhase in
                     if newPhase == .background {
                         // La app pasa a background - terminar Live Activity

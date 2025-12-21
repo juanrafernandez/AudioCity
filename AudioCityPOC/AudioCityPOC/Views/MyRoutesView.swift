@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct MyRoutesView: View {
-    @ObservedObject private var userRoutesService = UserRoutesService.shared
+    @EnvironmentObject private var userRoutesService: UserRoutesService
     @State private var showingCreateRoute = false
     @State private var selectedRoute: UserRoute?
 
@@ -166,7 +166,7 @@ struct UserRouteCard: View {
 
 // MARK: - Create Route View
 struct CreateRouteView: View {
-    @ObservedObject private var userRoutesService = UserRoutesService.shared
+    @EnvironmentObject private var userRoutesService: UserRoutesService
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
@@ -273,7 +273,7 @@ struct CreateRouteView: View {
 // MARK: - Edit Route View
 struct EditRouteView: View {
     let route: UserRoute
-    @ObservedObject private var userRoutesService = UserRoutesService.shared
+    @EnvironmentObject private var userRoutesService: UserRoutesService
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String
@@ -527,7 +527,7 @@ struct StopEditRow: View {
 // MARK: - Add Stop View
 struct AddStopView: View {
     let routeId: String
-    @ObservedObject private var userRoutesService = UserRoutesService.shared
+    @EnvironmentObject private var userRoutesService: UserRoutesService
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""

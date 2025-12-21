@@ -11,9 +11,6 @@ import SwiftUI
 
 class UserRoutesService: ObservableObject, UserRoutesServiceProtocol {
 
-    // MARK: - Singleton
-    static let shared = UserRoutesService()
-
     // MARK: - Published Properties
     @Published var userRoutes: [UserRoute] = []
     @Published var isLoading = false
@@ -89,22 +86,17 @@ class UserRoutesService: ObservableObject, UserRoutesServiceProtocol {
 
         saveRoutes()
 
-        // Otorgar puntos si la ruta alcanza 3+ paradas por primera vez
+        // Publicar evento si la ruta alcanza 3, 5 o 10 paradas
+        // PointsService escucha estos eventos y otorga puntos
         let newStopCount = userRoutes[index].stops.count
-        if previousStopCount < 3 && newStopCount >= 3 {
-            PointsService.shared.awardPointsForCreatingRoute(
+        if (previousStopCount < 3 && newStopCount >= 3) ||
+           (previousStopCount < 5 && newStopCount >= 5) ||
+           (previousStopCount < 10 && newStopCount >= 10) {
+            EventBus.shared.userRouteEvents.send(.routeCreated(
                 routeId: routeId,
                 routeName: userRoutes[index].name,
                 stopsCount: newStopCount
-            )
-        } else if (previousStopCount < 5 && newStopCount >= 5) ||
-                  (previousStopCount < 10 && newStopCount >= 10) {
-            // Bonus por alcanzar 5 o 10 paradas (diferencia de puntos)
-            PointsService.shared.awardPointsForCreatingRoute(
-                routeId: routeId,
-                routeName: userRoutes[index].name,
-                stopsCount: newStopCount
-            )
+            ))
         }
 
         Log("Parada añadida - \(stop.name)", level: .success, category: .route)
@@ -164,12 +156,13 @@ class UserRoutesService: ObservableObject, UserRoutesServiceProtocol {
         userRoutes[index].updatedAt = Date()
         saveRoutes()
 
-        // Otorgar puntos solo al publicar (no al despublicar)
+        // Publicar evento solo al publicar (no al despublicar)
+        // PointsService escucha estos eventos y otorga puntos
         if !wasPublished && userRoutes[index].isPublished {
-            PointsService.shared.awardPointsForPublishingRoute(
+            EventBus.shared.userRouteEvents.send(.routePublished(
                 routeId: routeId,
                 routeName: userRoutes[index].name
-            )
+            ))
         }
 
         let status = userRoutes[index].isPublished ? "publicada" : "despublicada"

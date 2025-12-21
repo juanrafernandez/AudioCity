@@ -10,9 +10,6 @@ import Combine
 
 class PointsService: ObservableObject, PointsServiceProtocol {
 
-    // MARK: - Singleton
-    static let shared = PointsService()
-
     // MARK: - Published Properties
     @Published var stats: UserPointsStats = UserPointsStats()
     @Published var transactions: [PointsTransaction] = []

@@ -10,9 +10,6 @@ import Combine
 
 class TripService: ObservableObject, TripServiceProtocol {
 
-    // MARK: - Singleton
-    static let shared = TripService()
-
     // MARK: - Published Properties
     @Published var trips: [Trip] = []
     @Published var availableDestinations: [Destination] = []

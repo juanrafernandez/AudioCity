@@ -5,6 +5,9 @@
 //  Contenedor de dependencias para inyección
 //  Centraliza la creación de servicios y permite sustituirlos en tests
 //
+//  NOTA: Este es el ÚNICO punto de acceso a servicios.
+//  Las vistas deben obtener servicios via @EnvironmentObject.
+//
 
 import Foundation
 import SwiftUI
@@ -13,14 +16,11 @@ import Combine
 // MARK: - Dependency Container
 
 /// Contenedor principal de dependencias
-/// Uso: DependencyContainer.shared.locationService
+/// Único punto de creación de instancias - NO usar .shared en servicios
 final class DependencyContainer: ObservableObject {
 
     // Required for ObservableObject
     let objectWillChange = ObservableObjectPublisher()
-
-    // MARK: - Singleton
-    static let shared = DependencyContainer()
 
     // MARK: - Core Services (lazy initialization)
 
@@ -44,49 +44,49 @@ final class DependencyContainer: ObservableObject {
         GeofenceService()
     }()
 
-    /// Servicio de notificaciones (singleton)
-    var notificationService: NotificationService {
-        NotificationService.shared
-    }
+    /// Servicio de notificaciones - instancia única del container
+    private(set) lazy var notificationService: NotificationService = {
+        NotificationService()
+    }()
 
-    // MARK: - Additional Services
+    // MARK: - Business Services (lazy initialization)
 
-    /// Servicio de viajes (singleton)
-    var tripService: TripService {
-        TripService.shared
-    }
+    /// Servicio de viajes - instancia única del container
+    private(set) lazy var tripService: TripService = {
+        TripService()
+    }()
 
-    /// Servicio de puntos/gamificación (singleton)
-    var pointsService: PointsService {
-        PointsService.shared
-    }
+    /// Servicio de puntos/gamificación - instancia única del container
+    private(set) lazy var pointsService: PointsService = {
+        PointsService()
+    }()
 
-    /// Servicio de historial (singleton)
-    var historyService: HistoryService {
-        HistoryService.shared
-    }
+    /// Servicio de historial - instancia única del container
+    private(set) lazy var historyService: HistoryService = {
+        HistoryService()
+    }()
 
-    /// Servicio de rutas de usuario (singleton)
-    var userRoutesService: UserRoutesService {
-        UserRoutesService.shared
-    }
+    /// Servicio de rutas de usuario - instancia única del container
+    private(set) lazy var userRoutesService: UserRoutesService = {
+        UserRoutesService()
+    }()
 
-    /// Servicio de preview de audio (singleton)
-    var audioPreviewService: AudioPreviewService {
-        AudioPreviewService.shared
-    }
+    /// Servicio de preview de audio - instancia única del container
+    private(set) lazy var audioPreviewService: AudioPreviewService = {
+        AudioPreviewService()
+    }()
 
-    /// Servicio de caché de imágenes (singleton)
-    var imageCacheService: ImageCacheService {
-        ImageCacheService.shared
-    }
+    /// Servicio de caché de imágenes - instancia única del container
+    private(set) lazy var imageCacheService: ImageCacheService = {
+        ImageCacheService()
+    }()
 
-    /// Servicio de favoritos (nueva instancia)
+    /// Servicio de favoritos
     private(set) lazy var favoritesService: FavoritesService = {
         FavoritesService()
     }()
 
-    /// Servicio de caché offline (nueva instancia)
+    /// Servicio de caché offline
     private(set) lazy var offlineCacheService: OfflineCacheService = {
         OfflineCacheService()
     }()
@@ -101,9 +101,44 @@ final class DependencyContainer: ObservableObject {
         RouteOptimizationService()
     }()
 
+    // MARK: - State Objects
+
+    /// Estado compartido de paradas para rutas activas
+    private(set) lazy var routeStopsState: RouteStopsState = {
+        RouteStopsState()
+    }()
+
+    // MARK: - ViewModels (lazy initialization)
+
+    /// ViewModel para descubrimiento de rutas
+    private(set) lazy var routeDiscoveryViewModel: RouteDiscoveryViewModel = {
+        RouteDiscoveryViewModel(firebaseService: firebaseService)
+    }()
+
+    /// ViewModel para exploración del mapa
+    private(set) lazy var exploreViewModel: ExploreViewModel = {
+        ExploreViewModel(
+            firebaseService: firebaseService,
+            locationService: locationService,
+            audioService: audioService
+        )
+    }()
+
+    /// ViewModel de ruta (legacy - usar los nuevos ViewModels cuando sea posible)
+    private(set) lazy var routeViewModel: RouteViewModel = {
+        RouteViewModel(
+            locationService: locationService,
+            audioService: audioService,
+            firebaseService: firebaseService,
+            geofenceService: geofenceService,
+            notificationService: notificationService,
+            historyService: historyService
+        )
+    }()
+
     // MARK: - Initialization
 
-    private init() {
+    init() {
         Log("DependencyContainer inicializado", level: .debug, category: .app)
     }
 
@@ -116,16 +151,39 @@ final class DependencyContainer: ObservableObject {
             audioService: audioService,
             firebaseService: firebaseService,
             geofenceService: geofenceService,
-            notificationService: notificationService
+            notificationService: notificationService,
+            historyService: historyService
+        )
+    }
+
+    /// Crear un ActiveRouteViewModel con todas las dependencias
+    func makeActiveRouteViewModel() -> ActiveRouteViewModel {
+        return ActiveRouteViewModel(
+            locationService: locationService,
+            geofenceService: geofenceService,
+            historyService: historyService,
+            audioService: audioService,
+            notificationService: notificationService,
+            firebaseService: firebaseService,
+            stopsState: routeStopsState
         )
     }
 
     // MARK: - Testing Support
 
+    /// Crear un container para testing con mocks opcionales
+    static func forTesting(
+        locationService: LocationService? = nil,
+        audioService: AudioService? = nil,
+        firebaseService: FirebaseService? = nil
+    ) -> DependencyContainer {
+        let container = DependencyContainer()
+        // En el futuro, permitir inyección de mocks aquí
+        return container
+    }
+
     /// Resetear todas las dependencias (útil para tests)
     func reset() {
-        // Crear nuevas instancias
-        // Nota: En producción, esto no debería llamarse
         Log("DependencyContainer reset (solo para tests)", level: .warning, category: .app)
     }
 }
@@ -134,11 +192,11 @@ final class DependencyContainer: ObservableObject {
 
 /// Clave de entorno para acceder al container desde SwiftUI
 private struct DependencyContainerKey: EnvironmentKey {
-    static let defaultValue = DependencyContainer.shared
+    static let defaultValue: DependencyContainer? = nil
 }
 
 extension EnvironmentValues {
-    var dependencies: DependencyContainer {
+    var dependencies: DependencyContainer? {
         get { self[DependencyContainerKey.self] }
         set { self[DependencyContainerKey.self] = newValue }
     }
@@ -148,7 +206,7 @@ extension EnvironmentValues {
 
 extension View {
     /// Inyectar el contenedor de dependencias en el environment
-    func withDependencies(_ container: DependencyContainer = .shared) -> some View {
+    func withDependencies(_ container: DependencyContainer) -> some View {
         self.environment(\.dependencies, container)
     }
 }

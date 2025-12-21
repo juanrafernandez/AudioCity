@@ -10,9 +10,6 @@ import Combine
 
 class HistoryService: ObservableObject, HistoryServiceProtocol {
 
-    // MARK: - Singleton
-    static let shared = HistoryService()
-
     // MARK: - Published Properties
     @Published var history: [RouteHistory] = []
     @Published var isLoading = false

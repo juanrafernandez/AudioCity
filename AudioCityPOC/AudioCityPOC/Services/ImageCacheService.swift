@@ -11,7 +11,6 @@ import UIKit
 // MARK: - Image Cache Service
 
 class ImageCacheService: ImageCacheServiceProtocol {
-    static let shared = ImageCacheService()
 
     // Caché en memoria (rápido)
     private let memoryCache = NSCache<NSString, UIImage>()
@@ -19,7 +18,7 @@ class ImageCacheService: ImageCacheServiceProtocol {
     // Directorio de caché en disco
     private let diskCacheURL: URL
 
-    private init() {
+    init() {
         // Configurar caché en memoria
         memoryCache.countLimit = 100 // Máximo 100 imágenes en memoria
         memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50 MB máximo
@@ -177,6 +176,7 @@ struct CachedAsyncImage<Placeholder: View>: View {
     let url: URL?
     let placeholder: () -> Placeholder
 
+    @EnvironmentObject private var container: DependencyContainer
     @State private var image: UIImage?
     @State private var isLoading = false
 
@@ -202,8 +202,10 @@ struct CachedAsyncImage<Placeholder: View>: View {
     private func loadImage() {
         guard let url = url, !isLoading else { return }
 
+        let cacheService = container.imageCacheService
+
         // Verificar caché primero (síncrono)
-        if let cached = ImageCacheService.shared.getImage(for: url) {
+        if let cached = cacheService.getImage(for: url) {
             self.image = cached
             return
         }
@@ -211,7 +213,7 @@ struct CachedAsyncImage<Placeholder: View>: View {
         // Descargar en background
         isLoading = true
         Task {
-            if let downloadedImage = await ImageCacheService.shared.loadImage(from: url) {
+            if let downloadedImage = await cacheService.loadImage(from: url) {
                 await MainActor.run {
                     self.image = downloadedImage
                     self.isLoading = false

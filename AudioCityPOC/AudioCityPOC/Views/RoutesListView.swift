@@ -13,9 +13,9 @@ import Combine
 struct RoutesListView: View {
     // Support for both standalone and shared viewModel modes
     @ObservedObject private var viewModel: RouteViewModel
-    @ObservedObject private var exploreViewModel = ExploreViewModel.shared
-    @ObservedObject private var tripService = TripService.shared
-    @StateObject private var favoritesService = FavoritesService()
+    @EnvironmentObject private var exploreViewModel: ExploreViewModel
+    @EnvironmentObject private var tripService: TripService
+    @EnvironmentObject private var favoritesService: FavoritesService
     @State private var selectedCity: String = ""
     @State private var userLocation: CLLocation?
     @State private var selectedTrip: Trip?
@@ -418,7 +418,7 @@ struct RouteDetailContentV2: View {
     @State private var isCheckingLocation = false
     @State private var showActiveRouteAlert = false
     @StateObject private var distanceCalculator = RouteDistanceCalculator()
-    @ObservedObject private var audioPreviewService = AudioPreviewService.shared
+    @EnvironmentObject private var audioPreviewService: AudioPreviewService
 
     var body: some View {
         ScrollView {
@@ -608,7 +608,7 @@ struct StopRowV2: View {
     let number: Int
     let isVisited: Bool
     var distanceToNext: String? = nil
-    @ObservedObject private var audioPreviewService = AudioPreviewService.shared
+    @EnvironmentObject private var audioPreviewService: AudioPreviewService
 
     /// Indica si este stop es el que se está reproduciendo actualmente
     private var isCurrentlyPlaying: Bool {

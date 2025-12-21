@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ViajesView: View {
-    @ObservedObject private var tripService = TripService.shared
+    @EnvironmentObject private var tripService: TripService
     @State private var showingTripOnboarding = false
     @State private var selectedTrip: Trip?
 

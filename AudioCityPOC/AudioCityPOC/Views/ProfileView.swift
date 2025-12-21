@@ -10,8 +10,8 @@ import CoreLocation
 
 struct ProfileView: View {
     @StateObject private var locationService = LocationService()
-    @ObservedObject private var pointsService = PointsService.shared
-    @ObservedObject private var historyService = HistoryService.shared
+    @EnvironmentObject private var pointsService: PointsService
+    @EnvironmentObject private var historyService: HistoryService
     @State private var showingPointsHistory = false
 
     var body: some View {
@@ -488,7 +488,7 @@ struct LevelUpNotification: View {
 
 // MARK: - Points History View
 struct PointsHistoryView: View {
-    @ObservedObject private var pointsService = PointsService.shared
+    @EnvironmentObject private var pointsService: PointsService
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

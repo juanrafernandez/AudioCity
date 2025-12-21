@@ -13,9 +13,6 @@ import Combine
 
 class ExploreViewModel: ObservableObject {
 
-    // MARK: - Singleton
-    static let shared = ExploreViewModel()
-
     // MARK: - Published Properties
     @Published var allStops: [Stop] = []
     @Published var routes: [Route] = []
@@ -39,17 +36,24 @@ class ExploreViewModel: ObservableObject {
     var hasCenteredOnUser = false
     var hasPositionedActiveRoute = false
 
-    // MARK: - Services (from DependencyContainer to avoid duplicate instances)
-    var firebaseService: FirebaseService { DependencyContainer.shared.firebaseService }
-    var locationService: LocationService { DependencyContainer.shared.locationService }
-    var audioService: AudioService { DependencyContainer.shared.audioService }
+    // MARK: - Services (inyectados via init)
+    let firebaseService: FirebaseServiceProtocol
+    let locationService: LocationService
+    let audioService: AudioService
 
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initialization
 
-    private init() {
+    init(
+        firebaseService: FirebaseServiceProtocol,
+        locationService: LocationService,
+        audioService: AudioService
+    ) {
+        self.firebaseService = firebaseService
+        self.locationService = locationService
+        self.audioService = audioService
         setupObservers()
     }
 

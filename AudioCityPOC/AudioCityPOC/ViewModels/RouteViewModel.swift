@@ -54,6 +54,7 @@ class RouteViewModel: ObservableObject {
     // MARK: - Specialized Services
     private let routeCalculationService = RouteCalculationService()
     private let routeOptimizationService = RouteOptimizationService()
+    private let historyService: HistoryService
 
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
@@ -71,18 +72,21 @@ class RouteViewModel: ObservableObject {
     ///   - firebaseService: Servicio de datos
     ///   - geofenceService: Servicio de geofencing
     ///   - notificationService: Servicio de notificaciones
+    ///   - historyService: Servicio de historial
     init(
         locationService: LocationService = LocationService(),
         audioService: AudioService = AudioService(),
         firebaseService: FirebaseService = FirebaseService(),
         geofenceService: GeofenceService = GeofenceService(),
-        notificationService: NotificationService = NotificationService.shared
+        notificationService: NotificationService = NotificationService(),
+        historyService: HistoryService = HistoryService()
     ) {
         self.locationService = locationService
         self.audioService = audioService
         self.firebaseService = firebaseService
         self.geofenceService = geofenceService
         self.notificationService = notificationService
+        self.historyService = historyService
         setupObservers()
     }
 
@@ -318,7 +322,7 @@ class RouteViewModel: ObservableObject {
         }
 
         // Registrar en el historial
-        let historyRecord = HistoryService.shared.startRoute(
+        let historyRecord = historyService.startRoute(
             routeId: route.id,
             routeName: route.name,
             routeCity: route.city,

@@ -11,6 +11,9 @@ import CoreLocation
 import Combine
 
 struct MainTabView: View {
+    @EnvironmentObject private var container: DependencyContainer
+    @EnvironmentObject private var audioPreviewService: AudioPreviewService
+    @EnvironmentObject private var exploreViewModel: ExploreViewModel
     @State private var selectedTab = 0
     @StateObject private var activeRouteViewModel = RouteViewModel()
     @State private var previousTab = 0
@@ -173,7 +176,7 @@ struct MainTabView: View {
         }
         .onChange(of: selectedTab) { oldTab, newTab in
             // Detener audio de preview cuando se cambia de tab
-            AudioPreviewService.shared.stop()
+            audioPreviewService.stop()
         }
         .alert("Continuar ruta", isPresented: $showContinueRouteAlert) {
             Button("Cancelar", role: .cancel) {
@@ -200,7 +203,7 @@ struct MainTabView: View {
 
         // Incluir ubicación del usuario si está disponible
         var allCoordinates = coordinates
-        if let userLocation = ExploreViewModel.shared.locationService.userLocation {
+        if let userLocation = exploreViewModel.locationService.userLocation {
             allCoordinates.append(userLocation.coordinate)
         }
 
@@ -225,8 +228,8 @@ struct MainTabView: View {
         )
 
         let region = MKCoordinateRegion(center: center, span: span)
-        ExploreViewModel.shared.activeRouteCameraPosition = .region(region)
-        ExploreViewModel.shared.hasPositionedActiveRoute = true
+        exploreViewModel.activeRouteCameraPosition = .region(region)
+        exploreViewModel.hasPositionedActiveRoute = true
 
         Log("Mapa centrado en ruta activa", level: .debug, category: .route)
     }

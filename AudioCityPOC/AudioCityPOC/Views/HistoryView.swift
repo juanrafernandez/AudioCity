@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct HistoryView: View {
-    @ObservedObject private var historyService = HistoryService.shared
+    @EnvironmentObject private var historyService: HistoryService
     @State private var showingClearConfirmation = false
 
     var body: some View {

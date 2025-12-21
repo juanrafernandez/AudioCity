@@ -10,12 +10,9 @@ import Foundation
 import AVFoundation
 import Combine
 
-/// Servicio singleton para reproducir previews de audio
+/// Servicio para reproducir previews de audio
 /// Completamente independiente del AudioService de la ruta activa
 class AudioPreviewService: NSObject, ObservableObject, AudioPreviewServiceProtocol {
-
-    // MARK: - Singleton
-    static let shared = AudioPreviewService()
 
     // MARK: - Published Properties
     @Published var isPlaying = false
@@ -28,7 +25,7 @@ class AudioPreviewService: NSObject, ObservableObject, AudioPreviewServiceProtoc
 
     // MARK: - Initialization
 
-    private override init() {
+    override init() {
         super.init()
         synthesizer.delegate = self
         selectBestVoice(for: "es-ES")

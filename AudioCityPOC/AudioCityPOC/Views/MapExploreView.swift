@@ -11,8 +11,8 @@ import MapKit
 import Combine
 
 struct MapExploreView: View {
-    @ObservedObject private var viewModel = ExploreViewModel.shared
-    @ObservedObject private var tripService = TripService.shared
+    @EnvironmentObject private var viewModel: ExploreViewModel
+    @EnvironmentObject private var tripService: TripService
 
     // RouteViewModel compartido para mostrar ruta activa (opcional)
     var activeRouteViewModel: RouteViewModel?

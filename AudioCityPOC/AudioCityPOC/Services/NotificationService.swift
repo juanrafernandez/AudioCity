@@ -12,9 +12,6 @@ import Combine
 
 class NotificationService: NSObject, ObservableObject, NotificationServiceProtocol {
 
-    // MARK: - Singleton
-    static let shared = NotificationService()
-
     // MARK: - Published Properties
     @Published var isAuthorized = false
     @Published var lastActionStopId: String?
@@ -32,7 +29,7 @@ class NotificationService: NSObject, ObservableObject, NotificationServiceProtoc
     }
 
     // MARK: - Initialization
-    private override init() {
+    override init() {
         super.init()
         setupNotificationCategories()
     }
